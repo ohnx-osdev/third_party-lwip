@@ -72,7 +72,7 @@ static_library("lwip") {
     ]
     cflags = [
       "-DLWIP_DEBUG",
-      "-Wno-format",
+      "-Wno-address-of-packed-member",
     ]
   }
 }
