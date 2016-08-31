@@ -12,10 +12,8 @@ config("lwip_config") {
 static_library("lwip") {
   sources = [
     "ports/fuchsia/include/netif/ethernetif.h",
-    "ports/fuchsia/include/util/util_netconfig.h",
     "ports/fuchsia/netif/ethernetif.c",
     "ports/fuchsia/sys_arch.c",
-    "ports/fuchsia/util/util_netconfig.c",
     "src/api/api_lib.c",
     "src/api/api_msg.c",
     "src/api/err.c",
@@ -63,12 +61,9 @@ static_library("lwip") {
 
   public_configs = [ ":lwip_config" ]
 
-  defines = [ "_POSIX_C_SOURCE=200112L" ]
-
   if (is_debug) {
     sources += [
-      "ports/fuchsia/include/util/util_debug.h",
-      "ports/fuchsia/util/util_debug.c",
+      "ports/fuchsia/debug_flags.c",
     ]
     cflags = [
       "-DLWIP_DEBUG",

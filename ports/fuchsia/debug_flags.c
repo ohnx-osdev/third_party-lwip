@@ -27,13 +27,3 @@
  */
 
 unsigned char lwip_debug_flags = LWIP_DBG_OFF;
-
-void lwip_util_debug_on()
-{
-  lwip_debug_flags = LWIP_DBG_ON;
-}
-
-void lwip_util_debug_off()
-{
-  lwip_debug_flags = LWIP_DBG_OFF;
-}
