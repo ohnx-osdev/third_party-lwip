@@ -106,15 +106,11 @@ low_level_output(struct netif *netif, struct pbuf *p)
 
   pbuf_copy_partial(p, buf, p->tot_len, 0);
 
-  /* TODO(toshik)
-   * We have to add padding ourselves toward the minimum packet size
-   * (60 bytes without FCS) as the driver doesn't do it for us.
-   *
-   * MIN_WRITE_SIZE should have been 60 instead of 64 as FCS (4 bytes) is
-   * added by the driver. But currently the driver doesn't accept a write
-   * smaller than 64.
+  /*
+   * Pad spaces toward the minimum packet size (60 bytes without FCS)
+   * as the driver doesn't do it for us.
    */
-#define MIN_WRITE_SIZE 64
+#define MIN_WRITE_SIZE 60
 
   int write_len = p->tot_len;
   if (write_len < MIN_WRITE_SIZE) {
