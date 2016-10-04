@@ -42,10 +42,10 @@
 /**
  * @defgroup slipif SLIP netif
  * @ingroup addons
- * 
+ *
  * This is an arch independent SLIP netif. The specific serial hooks must be
  * provided by another file. They are sio_open, sio_read/sio_tryread and sio_send
- * 
+ *
  * Usage: This netif can be used in three ways:\n
  *        1) For NO_SYS==0, an RX thread can be used which blocks on sio_read()
  *           until data is received.\n
@@ -61,8 +61,6 @@
 
 #include "netif/slipif.h"
 #include "lwip/opt.h"
-
-#if LWIP_HAVE_SLIPIF
 
 #include "lwip/def.h"
 #include "lwip/pbuf.h"
@@ -555,5 +553,3 @@ slipif_received_bytes(struct netif *netif, u8_t *data, u8_t len)
   }
 }
 #endif /* SLIP_RX_FROM_ISR */
-
-#endif /* LWIP_HAVE_SLIPIF */

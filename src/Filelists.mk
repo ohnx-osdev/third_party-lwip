@@ -60,6 +60,7 @@ CORE4FILES=$(LWIPDIR)/core/ipv4/autoip.c \
 CORE6FILES=$(LWIPDIR)/core/ipv6/dhcp6.c \
 	$(LWIPDIR)/core/ipv6/ethip6.c \
 	$(LWIPDIR)/core/ipv6/icmp6.c \
+	$(LWIPDIR)/core/ipv6/inet6.c \
 	$(LWIPDIR)/core/ipv6/ip6.c \
 	$(LWIPDIR)/core/ipv6/ip6_addr.c \
 	$(LWIPDIR)/core/ipv6/ip6_frag.c \
@@ -157,12 +158,20 @@ LWIPERFFILES=$(LWIPDIR)/apps/lwiperf/lwiperf.c
 # SNTPFILES: SNTP client
 SNTPFILES=$(LWIPDIR)/apps/sntp/sntp.c
 
+# MDNSFILES: MDNS responder
+MDNSFILES=$(LWIPDIR)/apps/mdns/mdns.c
+
 # NETBIOSNSFILES: NetBIOS name server
 NETBIOSNSFILES=$(LWIPDIR)/apps/netbiosns/netbiosns.c
+
+# TFTPFILES: TFTP server files
+TFTPFILES=$(LWIPDIR)/apps/tftp/tftp_server.c
 
 # LWIPAPPFILES: All LWIP APPs
 LWIPAPPFILES=$(SNMPFILES) \
 	$(HTTPDFILES) \
 	$(LWIPERFFILES) \
 	$(SNTPFILES) \
-	$(NETBIOSNSFILES)
+	$(MDNSFILES) \
+	$(NETBIOSNSFILES) \
+	$(TFTPFILES)

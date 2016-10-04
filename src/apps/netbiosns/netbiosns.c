@@ -46,6 +46,7 @@
 
 #if LWIP_IPV4 && LWIP_UDP  /* don't build if not configured for use in lwipopts.h */
 
+#include "lwip/def.h"
 #include "lwip/udp.h"
 #include "lwip/netif.h"
 
@@ -270,7 +271,7 @@ netbiosns_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t 
         /* decode the NetBIOS name */
         netbiosns_name_decode((char*)(netbios_name_hdr->encname), netbios_name, sizeof(netbios_name));
         /* if the packet is for us */
-        if (NETBIOS_STRCMP(netbios_name, NETBIOS_LOCAL_NAME) == 0) {
+        if (lwip_strnicmp(netbios_name, NETBIOS_LOCAL_NAME, sizeof(NETBIOS_LOCAL_NAME)) == 0) {
           struct pbuf *q;
           struct netbios_resp *resp;
 
@@ -346,7 +347,7 @@ netbiosns_set_name(const char* hostname)
   if (copy_len >= NETBIOS_NAME_LEN) {
     copy_len = NETBIOS_NAME_LEN - 1;
   }
-  memcpy(netbiosns_local_name, hostname, copy_len + 1);
+  MEMCPY(netbiosns_local_name, hostname, copy_len + 1);
 }
 #endif
 

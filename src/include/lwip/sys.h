@@ -1,7 +1,6 @@
 /**
  * @file
- * OS abstraction layer\n
- * See also @ref sys
+ * OS abstraction layer
  */
 
 /*
@@ -40,23 +39,37 @@
  * @ingroup infrastructure
  * @verbinclude "sys_arch.txt"
  *
- * @defgroup sys_sem Semaphores
+ * @defgroup sys_os OS abstraction layer
  * @ingroup sys_layer
+ * No need to implement functions in this section in NO_SYS mode.
+ *
+ * @defgroup sys_sem Semaphores
+ * @ingroup sys_os
  *
  * @defgroup sys_mutex Mutexes
- * @ingroup sys_layer
+ * @ingroup sys_os
+ * Mutexes are recommended to correctly handle priority inversion,
+ * especially if you use LWIP_CORE_LOCKING .
  *
  * @defgroup sys_mbox Mailboxes
- * @ingroup sys_layer
+ * @ingroup sys_os
  *
  * @defgroup sys_time Time
  * @ingroup sys_layer
  *
  * @defgroup sys_prot Critical sections
  * @ingroup sys_layer
+ * Used to protect short regions of code against concurrent access.
+ * - Your system is a bare-metal system (probably with an RTOS)
+ *   and interrupts are under your control:
+ *   Implement this as LockInterrupts() / UnlockInterrupts()
+ * - Your system uses an RTOS with deferred interrupt handling from a
+ *   worker thread: Implement as a global mutex or lock/unlock scheduler
+ * - Your system uses a high-level OS with e.g. POSIX signals:
+ *   Implement as a global mutex
  *
- * @defgroup sys_thread Threads
- * @ingroup sys_layer
+ * @defgroup sys_misc Misc
+ * @ingroup sys_os
  */
 
 #ifndef LWIP_HDR_SYS_H
@@ -248,7 +261,7 @@ void sys_sem_set_invalid(sys_sem_t *sem);
 
 #ifndef sys_msleep
 /**
- * @ingroup sys_time
+ * @ingroup sys_misc
  * Sleep for specified number of ms
  */
 void sys_msleep(u32_t ms); /* only has a (close to) 1 ms resolution. */
@@ -342,7 +355,7 @@ void sys_mbox_set_invalid(sys_mbox_t *mbox);
 
 
 /**
- * @ingroup sys_thread
+ * @ingroup sys_misc
  * The only thread function:
  * Creates a new thread
  * ATTENTION: although this function returns a value, it MUST NOT FAIL (ports have to assert this!)
@@ -360,7 +373,6 @@ void sys_init(void);
 
 #ifndef sys_jiffies
 /**
- * @ingroup sys_time
  * Ticks/jiffies since power up.
  */
 u32_t sys_jiffies(void);

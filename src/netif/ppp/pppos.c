@@ -309,7 +309,6 @@ pppos_connect(ppp_pcb *ppp, void *ctx)
   pppos_input_free_current_packet(pppos);
 #endif /* PPP_INPROC_IRQ_SAFE */
 
-  ppp_link_start(ppp);
   /* reset PPPoS control block to its initial state */
   memset(&pppos->last_xmit, 0, sizeof(pppos_pcb) - offsetof(pppos_pcb, last_xmit));
 
@@ -343,7 +342,6 @@ pppos_listen(ppp_pcb *ppp, void *ctx)
   pppos_input_free_current_packet(pppos);
 #endif /* PPP_INPROC_IRQ_SAFE */
 
-  ppp_link_start(ppp);
   /* reset PPPoS control block to its initial state */
   memset(&pppos->last_xmit, 0, sizeof(pppos_pcb) - offsetof(pppos_pcb, last_xmit));
 
@@ -787,9 +785,9 @@ pppos_input_drop(pppos_pcb *pppos)
     PPPDEBUG(LOG_INFO, ("pppos_input_drop: pbuf len=%d, addr %p\n", pppos->in_head->len, (void*)pppos->in_head));
   }
   pppos_input_free_current_packet(pppos);
-#if VJ_SUPPORT && LWIP_TCP
+#if VJ_SUPPORT
   vj_uncompress_err(&pppos->ppp->vj_comp);
-#endif /* VJ_SUPPORT && LWIP_TCP */
+#endif /* VJ_SUPPORT */
 
   LINK_STATS_INC(link.drop);
   MIB2_STATS_NETIF_INC(pppos->ppp->netif, ifindiscards);

@@ -1,6 +1,24 @@
 /**
  * @file
  * Sequential API External module
+ * 
+ * @defgroup netconn Netconn API
+ * @ingroup sequential_api
+ * Thread-safe, to be called from non-TCPIP threads only.
+ * TX/RX handling based on @ref netbuf (containing @ref pbuf)
+ * to avoid copying data around.
+ * 
+ * @defgroup netconn_common Common functions
+ * @ingroup netconn
+ * For use with TCP and UDP
+ * 
+ * @defgroup netconn_tcp TCP only
+ * @ingroup netconn
+ * TCP only functions
+ * 
+ * @defgroup netconn_udp UDP only
+ * @ingroup netconn
+ * UDP only functions
  */
 
 /*
@@ -32,30 +50,6 @@
  * This file is part of the lwIP TCP/IP stack.
  *
  * Author: Adam Dunkels <adam@sics.se>
- */
-
-/**
- * @defgroup netconn Netconn API
- * @ingroup threadsafe_api
- * Thread-safe, to be called from non-TCPIP threads only.
- * TX/RX handling based on @ref netbuf (containing @ref pbuf)
- * to avoid copying data around.
- * 
- * @defgroup netconn_common Common functions
- * @ingroup netconn
- * For use with TCP and UDP
- * 
- * @defgroup netconn_tcp TCP only
- * @ingroup netconn
- * TCP only functions
- * 
- * @defgroup netconn_udp UDP only
- * @ingroup netconn
- * UDP only functions
- * 
- * @defgroup netconn_dns DNS
- * @ingroup netconn
- * DNS lookup
  */
 
 /* This is the part of the API that is linked with
@@ -204,7 +198,6 @@ netconn_delete(struct netconn *conn)
 }
 
 /**
- * @ingroup netconn_tcp
  * Get the local or remote IP address and port of a netconn.
  * For RAW netconns, this returns the protocol instead of a port!
  *
@@ -248,8 +241,8 @@ netconn_getaddr(struct netconn *conn, ip_addr_t *addr, u16_t *port, u8_t local)
  * Binding one netconn twice might not always be checked correctly!
  *
  * @param conn the netconn to bind
- * @param addr the local IP address to bind the netconn to (use IP_ADDR_ANY
- *             to bind to all addresses)
+ * @param addr the local IP address to bind the netconn to 
+ *             (use IP4_ADDR_ANY/IP6_ADDR_ANY to bind to all addresses)
  * @param port the local port to bind the netconn to (not used for RAW)
  * @return ERR_OK if bound, any other err_t on failure
  */
@@ -263,7 +256,7 @@ netconn_bind(struct netconn *conn, const ip_addr_t *addr, u16_t port)
 
   /* Don't propagate NULL pointer (IP_ADDR_ANY alias) to subsequent functions */
   if (addr == NULL) {
-    addr = IP_ADDR_ANY;
+    addr = IP4_ADDR_ANY;
   }
 
   API_MSG_VAR_ALLOC(msg);
@@ -295,7 +288,7 @@ netconn_connect(struct netconn *conn, const ip_addr_t *addr, u16_t port)
 
   /* Don't propagate NULL pointer (IP_ADDR_ANY alias) to subsequent functions */
   if (addr == NULL) {
-    addr = IP_ADDR_ANY;
+    addr = IP4_ADDR_ANY;
   }
 
   API_MSG_VAR_ALLOC(msg);
@@ -874,10 +867,10 @@ netconn_join_leave_group(struct netconn *conn,
 
   /* Don't propagate NULL pointer (IP_ADDR_ANY alias) to subsequent functions */
   if (multiaddr == NULL) {
-    multiaddr = IP_ADDR_ANY;
+    multiaddr = IP4_ADDR_ANY;
   }
   if (netif_addr == NULL) {
-    netif_addr = IP_ADDR_ANY;
+    netif_addr = IP4_ADDR_ANY;
   }
 
   API_MSG_VAR_REF(msg).conn = conn;
@@ -893,7 +886,7 @@ netconn_join_leave_group(struct netconn *conn,
 
 #if LWIP_DNS
 /**
- * @ingroup netconn_dns
+ * @ingroup netconn_common
  * Execute a DNS query, only one IP address is returned
  *
  * @param name a string representation of the DNS host name to query

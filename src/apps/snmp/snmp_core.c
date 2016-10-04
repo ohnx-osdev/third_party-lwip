@@ -36,7 +36,131 @@
 /**
  * @defgroup snmp SNMPv2c agent
  * @ingroup apps
+ * SNMPv2c compatible agent\n
+ * There is also a MIB compiler and a MIB viewer in lwIP contrib repository
+ * (lwip-contrib/apps/LwipMibCompiler).\n
+ * The agent implements the most important MIB2 MIBs including IPv6 support
+ * (interfaces, UDP, TCP, SNMP, ICMP, SYSTEM). IP MIB is an older version
+ * whithout IPv6 statistics (TODO).\n
+ * Rewritten by Martin Hentschel <info@cl-soft.de> and
+ * Dirk Ziegelmeier <dziegel@gmx.de>\n
+ * Work on SNMPv3 has started, but is not finished.\n
+ *
+ * 0 Agent Capabilities
+ * ====================
  * 
+ * Features:
+ * ---------
+ * - SNMPv2c support.
+ * - Low RAM usage - no memory pools, stack only.
+ * - MIB2 implementation is separated from SNMP stack.
+ * - Support for multiple MIBs (snmp_set_mibs() call) - e.g. for private MIB.
+ * - Simple and generic API for MIB implementation.
+ * - Comfortable node types and helper functions for scalar arrays and tables.
+ * - Counter64, bit and truthvalue datatype support.
+ * - Callbacks for SNMP writes e.g. to implement persistency.
+ * - Runs on two APIs: RAW and netconn.
+ * - Async API is gone - the stack now supports netconn API instead,
+ *   so blocking operations can be done in MIB calls.
+ *   SNMP runs in a worker thread when netconn API is used.
+ * - Simplified thread sync support for MIBs - useful when MIBs
+ *   need to access variables shared with other threads where no locking is
+ *   possible. Used in MIB2 to access lwIP stats from lwIP thread.
+ * 
+ * MIB compiler (code generator):
+ * ------------------------------
+ * - Provided in lwIP contrib repository.
+ * - Written in C#. MIB viewer used Windows Forms.
+ * - Developed on Windows with Visual Studio 2010.
+ * - Can be compiled and used on all platforms with http://www.monodevelop.com/.
+ * - Based on a heavily modified version of of SharpSnmpLib (a4bd05c6afb4)
+ *   (https://sharpsnmplib.codeplex.com/SourceControl/network/forks/Nemo157/MIBParserUpdate).
+ * - MIB parser, C file generation framework and LWIP code generation are cleanly
+ *   separated, which means the code may be useful as a base for code generation
+ *   of other SNMP agents.
+ * 
+ * Notes:
+ * ------
+ * - Stack and MIB compiler were used to implement a Profinet device.
+ *   Compiled/implemented MIBs: LLDP-MIB, LLDP-EXT-DOT3-MIB, LLDP-EXT-PNO-MIB.
+ * 
+ * SNMPv1 per RFC1157 and SNMPv2c per RFC 3416
+ * -------------------------------------------
+ *   Note the S in SNMP stands for "Simple". Note that "Simple" is
+ *   relative. SNMP is simple compared to the complex ISO network
+ *   management protocols CMIP (Common Management Information Protocol)
+ *   and CMOT (CMip Over Tcp).
+ * 
+ * MIB II
+ * ------
+ *   The standard lwIP stack management information base.
+ *   This is a required MIB, so this is always enabled.
+ *   The groups EGP, CMOT and transmission are disabled by default.
+ * 
+ *   Most mib-2 objects are not writable except:
+ *   sysName, sysLocation, sysContact, snmpEnableAuthenTraps.
+ *   Writing to or changing the ARP and IP address and route
+ *   tables is not possible.
+ * 
+ *   Note lwIP has a very limited notion of IP routing. It currently
+ *   doen't have a route table and doesn't have a notion of the U,G,H flags.
+ *   Instead lwIP uses the interface list with only one default interface
+ *   acting as a single gateway interface (G) for the default route.
+ * 
+ *   The agent returns a "virtual table" with the default route 0.0.0.0
+ *   for the default interface and network routes (no H) for each
+ *   network interface in the netif_list.
+ *   All routes are considered to be up (U).
+ * 
+ * Loading additional MIBs
+ * -----------------------
+ *   MIBs can only be added in compile-time, not in run-time.
+ *  
+ * 
+ * 1 Building the Agent
+ * ====================
+ * First of all you'll need to add the following define
+ * to your local lwipopts.h:
+ * \#define LWIP_SNMP               1
+ * 
+ * and add the source files your makefile.
+ * 
+ * Note you'll might need to adapt you network driver to update
+ * the mib2 variables for your interface.
+ * 
+ * 2 Running the Agent
+ * ===================
+ * The following function calls must be made in your program to
+ * actually get the SNMP agent running.
+ * 
+ * Before starting the agent you should supply pointers
+ * for sysContact, sysLocation, and snmpEnableAuthenTraps.
+ * You can do this by calling
+ * 
+ * - snmp_mib2_set_syscontact()
+ * - snmp_mib2_set_syslocation()
+ * - snmp_set_auth_traps_enabled()
+ * 
+ * You can register a callback which is called on successful write access: 
+ * snmp_set_write_callback().
+ * 
+ * Additionally you may want to set
+ * 
+ * - snmp_mib2_set_sysdescr()
+ * - snmp_set_device_enterprise_oid()
+ * - snmp_mib2_set_sysname()
+ * 
+ * Also before starting the agent you need to setup
+ * one or more trap destinations using these calls:
+ * 
+ * - snmp_trap_dst_enable()
+ * - snmp_trap_dst_ip_set()
+ * 
+ * If you need more than MIB2, set the MIBs you want to use
+ * by snmp_set_mibs().
+ * 
+ * Finally, enable the agent by calling snmp_init()
+ *
  * @defgroup snmp_core Core
  * @ingroup snmp
  * 
@@ -146,7 +270,7 @@ snmp_oid_to_ip4(const u32_t *oid, ip4_addr_t *ip)
       (oid[1] > 0xFF) ||
       (oid[2] > 0xFF) ||
       (oid[3] > 0xFF)) {
-    ip4_addr_copy(*ip, *IP4_ADDR_ANY);
+    ip4_addr_copy(*ip, *IP4_ADDR_ANY4);
     return 0;
   }
 
@@ -198,10 +322,10 @@ snmp_oid_to_ip6(const u32_t *oid, ip6_addr_t *ip)
     return 0;
   }
 
-  ip->addr[0] = (oid[0]  << 24) | (oid[1]  << 16) | (oid[2]  << 8) | (oid[3]  << 0); 
-  ip->addr[1] = (oid[4]  << 24) | (oid[5]  << 16) | (oid[6]  << 8) | (oid[7]  << 0); 
-  ip->addr[2] = (oid[8]  << 24) | (oid[9]  << 16) | (oid[10] << 8) | (oid[11] << 0); 
-  ip->addr[3] = (oid[12] << 24) | (oid[13] << 16) | (oid[14] << 8) | (oid[15] << 0); 
+  ip->addr[0] = (oid[0]  << 24) | (oid[1]  << 16) | (oid[2]  << 8) | (oid[3]  << 0);
+  ip->addr[1] = (oid[4]  << 24) | (oid[5]  << 16) | (oid[6]  << 8) | (oid[7]  << 0);
+  ip->addr[2] = (oid[8]  << 24) | (oid[9]  << 16) | (oid[10] << 8) | (oid[11] << 0);
+  ip->addr[3] = (oid[12] << 24) | (oid[13] << 16) | (oid[14] << 8) | (oid[15] << 0);
   return 1;
 }
 
@@ -248,7 +372,7 @@ snmp_ip_port_to_oid(const ip_addr_t *ip, u16_t port, u32_t *oid)
   idx = snmp_ip_to_oid(ip, oid);
   oid[idx] = port;
   idx++;
-  
+
   return idx;
 }
 
@@ -300,7 +424,7 @@ snmp_oid_to_ip(const u32_t *oid, u8_t oid_len, ip_addr_t *ip)
   if (oid_len < 1) {
     return 0;
   }
-  
+
   if (oid[0] == 0) { /* any */
     /* 1x InetAddressType, 1x OID len */
     if (oid_len < 2) {
@@ -330,7 +454,7 @@ snmp_oid_to_ip(const u32_t *oid, u8_t oid_len, ip_addr_t *ip)
     if (!snmp_oid_to_ip4(&oid[2], ip_2_ip4(ip))) {
       return 0;
     }
-    
+
     return 6;
 #else /* LWIP_IPV4 */
     return 0;
@@ -373,7 +497,7 @@ u8_t
 snmp_oid_to_ip_port(const u32_t *oid, u8_t oid_len, ip_addr_t *ip, u16_t *port)
 {
   u8_t idx = 0;
-  
+
   /* InetAddressType + InetAddress */
   idx += snmp_oid_to_ip(&oid[idx], oid_len-idx, ip);
   if (idx == 0) {
@@ -457,7 +581,7 @@ snmp_oid_combine(struct snmp_obj_id* target, const u32_t *oid1, u8_t oid1_len, c
  * @param oid
  * @param oid_len
  */
-void 
+void
 snmp_oid_append(struct snmp_obj_id* target, const u32_t *oid, u8_t oid_len)
 {
   LWIP_ASSERT("offset + oid_len <= LWIP_SNMP_OBJ_ID_LEN", (target->len + oid_len) <= SNMP_MAX_OBJ_ID_LEN);
@@ -505,7 +629,7 @@ snmp_oid_compare(const u32_t *oid1, u8_t oid1_len, const u32_t *oid2, u8_t oid2_
   }
 
   /* they are equal */
-  return 0;   
+  return 0;
 }
 
 
@@ -648,7 +772,7 @@ snmp_get_node_instance_from_oid(const u32_t *oid, u8_t oid_len, struct snmp_node
   mib = snmp_get_mib_from_oid(oid, oid_len);
   if (mib != NULL) {
     u8_t oid_instance_len;
-      
+
     mn = snmp_mib_tree_resolve_exact(mib, oid, oid_len, &oid_instance_len);
     if ((mn != NULL) && (mn->node_type != SNMP_NODE_TREE)) {
       /* get instance */
@@ -678,7 +802,7 @@ snmp_get_node_instance_from_oid(const u32_t *oid, u8_t oid_len, struct snmp_node
   return result;
 }
 
-u8_t 
+u8_t
 snmp_get_next_node_instance_from_oid(const u32_t *oid, u8_t oid_len, snmp_validate_node_instance_method validate_node_instance_method, void* validate_node_instance_arg, struct snmp_obj_id* node_oid, struct snmp_node_instance* node_instance)
 {
   const struct snmp_mib      *mib;
@@ -704,7 +828,7 @@ snmp_get_next_node_instance_from_oid(const u32_t *oid, u8_t oid_len, snmp_valida
   /* resolve target node from MIB, skip to next MIB if no suitable node is found in current MIB */
   while ((mib != NULL) && (mn == NULL)) {
     u8_t oid_instance_len;
-    
+
     /* check if OID directly references a node inside current MIB, in this case we have to ask this node for the next instance */
     mn = snmp_mib_tree_resolve_exact(mib, start_oid, start_oid_len, &oid_instance_len);
     if (mn != NULL) {
@@ -757,9 +881,9 @@ snmp_get_next_node_instance_from_oid(const u32_t *oid, u8_t oid_len, snmp_valida
         if (node_instance->release_instance != NULL) {
           node_instance->release_instance(node_instance);
         }
-        /* 
+        /*
         the instance itself is not valid, ask for next instance from same node.
-        we don't have to change any variables because node_instance->instance_oid is used as input (starting point) 
+        we don't have to change any variables because node_instance->instance_oid is used as input (starting point)
         as well as output (resulting next OID), so we have to simply call get_next_instance method again
         */
       } else {
@@ -802,7 +926,7 @@ snmp_get_next_node_instance_from_oid(const u32_t *oid, u8_t oid_len, snmp_valida
       }
       /* else { we found out target node } */
     } else {
-      /* 
+      /*
       there is no further (suitable) node inside this MIB, search for the next MIB with following priority
       1. search for inner MIB's (whose root is located inside tree of current MIB)
       2. search for surrouding MIB's (where the current MIB is the inner MIB) and continue there if any
@@ -880,11 +1004,11 @@ snmp_mib_tree_resolve_exact(const struct snmp_mib *mib, const u32_t *oid, u8_t o
     *oid_instance_len = oid_len - oid_offset;
     return (*node);
   }
-  
+
   return NULL;
 }
 
-const struct snmp_node* 
+const struct snmp_node*
 snmp_mib_tree_resolve_next(const struct snmp_mib *mib, const u32_t *oid, u8_t oid_len, struct snmp_obj_id* oidret)
 {
   u8_t  oid_offset = mib->base_oid_len;
@@ -975,7 +1099,7 @@ snmp_mib_tree_resolve_next(const struct snmp_mib *mib, const u32_t *oid, u8_t oi
       }
     }
   }
-  
+
   return NULL;
 }
 
@@ -1016,7 +1140,7 @@ snmp_next_oid_precheck(struct snmp_next_oid_state *state, const u32_t *oid, cons
 }
 
 /** checks the passed OID if it is a candidate to be the next one (get_next); returns !=0 if passed oid is currently closest, otherwise 0 */
-u8_t 
+u8_t
 snmp_next_oid_check(struct snmp_next_oid_state *state, const u32_t *oid, const u8_t oid_len, void* reference)
 {
   /* do not overwrite a fail result */

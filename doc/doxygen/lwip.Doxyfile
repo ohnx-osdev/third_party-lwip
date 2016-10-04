@@ -162,7 +162,7 @@ FULL_PATH_NAMES        = YES
 # will be relative from the directory where doxygen is started.
 # This tag requires that the tag FULL_PATH_NAMES is set to YES.
 
-STRIP_FROM_PATH        =
+STRIP_FROM_PATH        = ../../
 
 # The STRIP_FROM_INC_PATH tag can be used to strip a user-defined part of the
 # path mentioned in the documentation of a class, which tells the reader which
@@ -614,7 +614,7 @@ STRICT_PROTO_MATCHING  = NO
 # list. This list is created by putting \todo commands in the documentation.
 # The default value is: YES.
 
-GENERATE_TODOLIST      = YES
+GENERATE_TODOLIST      = NO
 
 # The GENERATE_TESTLIST tag can be used to enable (YES) or disable (NO) the test
 # list. This list is created by putting \test commands in the documentation.
@@ -781,7 +781,7 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = ../../src main_page.h contrib.h
+INPUT                  = main_page.h ../../src
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -875,7 +875,7 @@ EXCLUDE_SYMBOLS        =
 # that contain example code fragments that are included (see the \include
 # command).
 
-EXAMPLE_PATH           = ../
+EXAMPLE_PATH           = ../ ../../
 
 # If the value of the EXAMPLE_PATH tag contains directories, you can use the
 # EXAMPLE_PATTERNS tag to specify one or more wildcard pattern (like *.cpp and
@@ -1561,7 +1561,7 @@ MATHJAX_CODEFILE       =
 # The default value is: YES.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-SEARCHENGINE           = NO
+SEARCHENGINE           = YES
 
 # When the SERVER_BASED_SEARCH tag is enabled the search engine will be
 # implemented using a web server instead of a web client using Javascript. There
@@ -2058,7 +2058,7 @@ INCLUDE_PATH           = ../../src/include
 # used.
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
-INCLUDE_FILE_PATTERNS  = *.c *.h
+INCLUDE_FILE_PATTERNS  = *.h
 
 # The PREDEFINED tag can be used to specify one or more macro names that are
 # defined before the preprocessor is started (similar to the -D option of e.g.
@@ -2068,8 +2068,10 @@ INCLUDE_FILE_PATTERNS  = *.c *.h
 # recursively expanded use the := operator instead of the = operator.
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
-PREDEFINED             = NO_SYS=0 \
+PREDEFINED             = __DOXYGEN__=1 \
+                         NO_SYS=0 \
                          SYS_LIGHTWEIGHT_PROT=1 \
+                         LWIP_TCPIP_CORE_LOCKING=1 \
                          LWIP_IPV4=1 \
                          LWIP_IPV6=1 \
                          LWIP_ICMP=1 \
@@ -2079,8 +2081,12 @@ PREDEFINED             = NO_SYS=0 \
                          LWIP_UDP=1 \
                          LWIP_IGMP=1 \
                          LWIP_TCP=1 \
+                         TCP_LISTEN_BACKLOG=1 \
                          LWIP_SNMP=1 \
+                         SNMP_USE_NETCONN=1 \
                          SNMP_USE_RAW=1 \
+                         MIB2_STATS=1 \
+                         LWIP_MDNS_RESPONDER=1 \
                          MEMP_OVERFLOW_CHECK=0 \
                          MEMP_SANITY_CHECK=1 \
                          LWIP_ARP=1 \
@@ -2088,15 +2094,17 @@ PREDEFINED             = NO_SYS=0 \
                          LWIP_NETIF_HOSTNAME=1 \
                          LWIP_NETIF_API=1 \
                          LWIP_NETIF_CALLBACK=1 \
+                         LWIP_NETIF_STATUS_CALLBACK=1 \
                          LWIP_NETIF_REMOVE_CALLBACK=1 \
                          LWIP_NETIF_LINK_CALLBACK=1 \
+                         LWIP_NUM_NETIF_CLIENT_DATA=1 \
                          ENABLE_LOOPBACK=1 \
                          LWIP_AUTOIP=1 \
                          ARP_QUEUEING=1 \
                          LWIP_STATS=1 \
                          MEM_USE_POOLS=0 \
                          LWIP_DNS=1 \
-                         LWIP_SOCKETS=1 \
+                         LWIP_SOCKET=1 \
                          LWIP_NETCONN=1 \
                          IP_SOF_BROADCAST=1 \
                          IP_SOF_BROADCAST_RECV=1 \
@@ -2107,10 +2115,8 @@ PREDEFINED             = NO_SYS=0 \
                          SO_REUSE=1 \
                          SO_REUSE_RXTOALL=1 \
                          LWIP_HAVE_SLIPIF=1 \
-                         LWIP_6LOWPAN=1 \
-                         "LWIP_DNS && LWIP_SOCKET   " \
-                         "(LWIP_DNS && LWIP_SOCKET)=1   "
-
+                         LWIP_6LOWPAN=1
+ 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this
 # tag can be used to specify a list of macro names that should be expanded. The
 # macro definition that is found in the sources will be used. Use the PREDEFINED

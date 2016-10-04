@@ -1,7 +1,24 @@
 /**
- * @file ip.c
+ * @file
  * Common IPv4 and IPv6 code
  *
+ * @defgroup ip IP
+ * @ingroup callbackstyle_api
+ * 
+ * @defgroup ip4 IPv4
+ * @ingroup ip
+ *
+ * @defgroup ip6 IPv6
+ * @ingroup ip
+ * 
+ * @defgroup ipaddr IP address handling
+ * @ingroup infrastructure
+ * 
+ * @defgroup ip4addr IPv4 only
+ * @ingroup ipaddr
+ * 
+ * @defgroup ip6addr IPv6 only
+ * @ingroup ipaddr
  */
 
 /*
@@ -34,23 +51,6 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- */
-
-/**
- * @defgroup ip4 IPv4
- * @ingroup callbackstyle_api
- *
- * @defgroup ip6 IPv6
- * @ingroup callbackstyle_api
- * 
- * @defgroup ipaddr IP address handling
- * @ingroup infrastructure
- * 
- * @defgroup ip4addr IPv4 only
- * @ingroup ipaddr
- * 
- * @defgroup ip6addr IPv6 only
- * @ingroup ipaddr
  */
 
 #include "lwip/opt.h"
@@ -102,7 +102,11 @@ ipaddr_aton(const char *cp, ip_addr_t *addr)
   return 0;
 }
 
-/* If both IP versions are enabled, this function can dispatch packets to the correct one. */
+/**
+ * @ingroup lwip_nosys
+ * If both IP versions are enabled, this function can dispatch packets to the correct one.
+ * Don't call directly, pass to netif_add() and call netif->input().
+ */
 err_t
 ip_input(struct pbuf *p, struct netif *inp)
 {

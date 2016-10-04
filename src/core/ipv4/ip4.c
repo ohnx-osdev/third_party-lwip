@@ -53,9 +53,9 @@
 #include "lwip/raw.h"
 #include "lwip/udp.h"
 #include "lwip/priv/tcp_priv.h"
-#include "lwip/dhcp.h"
 #include "lwip/autoip.h"
 #include "lwip/stats.h"
+#include "lwip/prot/dhcp.h"
 
 #include <string.h>
 
@@ -106,7 +106,9 @@ static u16_t ip_id;
 /** The default netif used for multicast */
 static struct netif* ip4_default_multicast_netif;
 
-/** Set a default netif for IPv4 multicast. */
+/**
+ * @ingroup ip4
+ * Set a default netif for IPv4 multicast. */
 void
 ip4_set_default_multicast_netif(struct netif* default_multicast_netif)
 {
@@ -265,6 +267,7 @@ ip4_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp)
   struct netif *netif;
 
   PERF_START;
+  LWIP_UNUSED_ARG(inp);
 
   if (!ip4_canforward(p)) {
     goto return_noroute;
@@ -507,8 +510,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
 #if LWIP_AUTOIP
         /* connections to link-local addresses must persist after changing
            the netif's address (RFC3927 ch. 1.9) */
-        if ((netif->autoip != NULL) &&
-            ip4_addr_cmp(ip4_current_dest_addr(), &(netif->autoip->llipaddr))) {
+        if (autoip_accept_packet(netif, ip4_current_dest_addr())) {
           LWIP_DEBUGF(IP_DEBUG, ("ip4_input: LLA packet accepted on interface %c%c\n",
               netif->name[0], netif->name[1]));
           /* break out of for loop */
@@ -716,13 +718,13 @@ ip4_input(struct pbuf *p, struct netif *inp)
  * the IP header and calculates the IP header checksum. If the source
  * IP address is NULL, the IP address of the outgoing network
  * interface is filled in as source address.
- * If the destination IP address is IP_HDRINCL, p is assumed to already
+ * If the destination IP address is LWIP_IP_HDRINCL, p is assumed to already
  * include an IP header and p->payload points to it instead of the data.
  *
  * @param p the packet to send (p->payload points to the data, e.g. next
-            protocol header; if dest == IP_HDRINCL, p already includes an IP
-            header and p->payload points to that IP header)
- * @param src the source IP address to send from (if src == IP_ADDR_ANY, the
+            protocol header; if dest == LWIP_IP_HDRINCL, p already includes an
+            IP header and p->payload points to that IP header)
+ * @param src the source IP address to send from (if src == IP4_ADDR_ANY, the
  *         IP  address of the netif used to send is used as source address)
  * @param dest the destination IP address to send the packet to
  * @param ttl the TTL value to be set in the IP header
@@ -758,7 +760,7 @@ ip4_output_if_opt(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
 {
 #endif /* IP_OPTIONS_SEND */
   const ip4_addr_t *src_used = src;
-  if (dest != IP_HDRINCL) {
+  if (dest != LWIP_IP_HDRINCL) {
     if (ip4_addr_isany(src)) {
       src_used = netif_ip4_addr(netif);
     }
@@ -806,7 +808,7 @@ ip4_output_if_opt_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *d
   MIB2_STATS_INC(mib2.ipoutrequests);
 
   /* Should the IP header be generated or is it already included in p? */
-  if (dest != IP_HDRINCL) {
+  if (dest != LWIP_IP_HDRINCL) {
     u16_t ip_hlen = IP_HLEN;
 #if IP_OPTIONS_SEND
     u16_t optlen_aligned = 0;
@@ -879,7 +881,7 @@ ip4_output_if_opt_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *d
     ++ip_id;
 
     if (src == NULL) {
-      ip4_addr_copy(iphdr->src, *IP4_ADDR_ANY);
+      ip4_addr_copy(iphdr->src, *IP4_ADDR_ANY4);
     } else {
       /* src cannot be NULL here */
       ip4_addr_copy(iphdr->src, *src);
@@ -951,9 +953,9 @@ ip4_output_if_opt_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *d
  * interface and calls upon ip_output_if to do the actual work.
  *
  * @param p the packet to send (p->payload points to the data, e.g. next
-            protocol header; if dest == IP_HDRINCL, p already includes an IP
-            header and p->payload points to that IP header)
- * @param src the source IP address to send from (if src == IP_ADDR_ANY, the
+            protocol header; if dest == LWIP_IP_HDRINCL, p already includes an
+            IP header and p->payload points to that IP header)
+ * @param src the source IP address to send from (if src == IP4_ADDR_ANY, the
  *         IP  address of the netif used to send is used as source address)
  * @param dest the destination IP address to send the packet to
  * @param ttl the TTL value to be set in the IP header
@@ -986,9 +988,9 @@ ip4_output(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
  *  before calling ip_output_if.
  *
  * @param p the packet to send (p->payload points to the data, e.g. next
-            protocol header; if dest == IP_HDRINCL, p already includes an IP
-            header and p->payload points to that IP header)
- * @param src the source IP address to send from (if src == IP_ADDR_ANY, the
+            protocol header; if dest == LWIP_IP_HDRINCL, p already includes an
+            IP header and p->payload points to that IP header)
+ * @param src the source IP address to send from (if src == IP4_ADDR_ANY, the
  *         IP  address of the netif used to send is used as source address)
  * @param dest the destination IP address to send the packet to
  * @param ttl the TTL value to be set in the IP header

@@ -1,7 +1,13 @@
 /**
  * @file
  * User Datagram Protocol module\n
+ * The code for the User Datagram Protocol UDP & UDPLite (RFC 3828).\n
  * See also @ref udp_raw
+ * 
+ * @defgroup udp_raw UDP
+ * @ingroup callbackstyle_api
+ * User Datagram Protocol module\n
+ * @see @ref raw_api and @ref netconn
  */
 
 /*
@@ -36,19 +42,6 @@
  *
  */
 
-/**
- * @defgroup udp_raw UDP
- * @ingroup raw_api
- * User Datagram Protocol module\n
- * @see @ref raw_api and @ref netconn
- */
-
-/* udp.c
- *
- * The code for the User Datagram Protocol UDP & UDPLite (RFC 3828).
- *
- */
-
 /* @todo Check the use of '(struct udp_pcb).chksum_len_rx'!
  */
 
@@ -63,7 +56,6 @@
 #include "lwip/ip_addr.h"
 #include "lwip/ip6.h"
 #include "lwip/ip6_addr.h"
-#include "lwip/inet_chksum.h"
 #include "lwip/netif.h"
 #include "lwip/icmp.h"
 #include "lwip/icmp6.h"
@@ -198,7 +190,7 @@ udp_input_local_match(struct udp_pcb *pcb, struct netif *inp, u8_t broadcast)
       return 1;
     }
   }
-  
+
   return 0;
 }
 
@@ -859,7 +851,7 @@ udp_sendto_if_src_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *d
 
   /* Determine TTL to use */
 #if LWIP_MULTICAST_TX_OPTIONS
-  ttl = (ip_addr_ismulticast(dst_ip) ? pcb->mcast_ttl : pcb->ttl);
+  ttl = (ip_addr_ismulticast(dst_ip) ? udp_get_multicast_ttl(pcb) : pcb->ttl);
 #else /* LWIP_MULTICAST_TX_OPTIONS */
   ttl = pcb->ttl;
 #endif /* LWIP_MULTICAST_TX_OPTIONS */
@@ -891,7 +883,7 @@ udp_sendto_if_src_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *d
  * Bind an UDP PCB.
  *
  * @param pcb UDP PCB to be bound with a local address ipaddr and port.
- * @param ipaddr local IP address to bind with. Use IP_ADDR_ANY to
+ * @param ipaddr local IP address to bind with. Use IP4_ADDR_ANY to
  * bind to all local interfaces.
  * @param port local UDP port to bind with. Use 0 to automatically bind
  * to a random port between UDP_LOCAL_PORT_RANGE_START and
@@ -915,7 +907,7 @@ udp_bind(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
 #if LWIP_IPV4
   /* Don't propagate NULL pointer (IPv4 ANY) to subsequent functions */
   if (ipaddr == NULL) {
-    ipaddr = IP_ADDR_ANY;
+    ipaddr = IP4_ADDR_ANY;
   }
 #endif /* LWIP_IPV4 */
 
@@ -1141,7 +1133,7 @@ udp_new(void)
     memset(pcb, 0, sizeof(struct udp_pcb));
     pcb->ttl = UDP_TTL;
 #if LWIP_MULTICAST_TX_OPTIONS
-    pcb->mcast_ttl = UDP_TTL;
+    udp_set_multicast_ttl(pcb, UDP_TTL);
 #endif /* LWIP_MULTICAST_TX_OPTIONS */
   }
   return pcb;
@@ -1151,7 +1143,9 @@ udp_new(void)
  * @ingroup udp_raw
  * Create a UDP PCB for specific IP type.
  *
- * @param type IP address type, see IPADDR_TYPE_XX definitions.
+ * @param type IP address type, see @ref lwip_ip_addr_type definitions.
+ * If you want to listen to IPv4 and IPv6 (dual-stack) packets,
+ * supply @ref IPADDR_TYPE_ANY as argument and bind to @ref IP_ANY_TYPE.
  * @return The UDP PCB which was created. NULL if the PCB data structure
  * could not be allocated.
  *
@@ -1173,32 +1167,26 @@ udp_new_ip_type(u8_t type)
   return pcb;
 }
 
-#if LWIP_IPV4
 /** This function is called from netif.c when address is changed
  *
- * @param old_addr IPv4 address of the netif before change
- * @param new_addr IPv4 address of the netif after change
+ * @param old_addr IP address of the netif before change
+ * @param new_addr IP address of the netif after change
  */
-void udp_netif_ipv4_addr_changed(const ip4_addr_t* old_addr, const ip4_addr_t* new_addr)
+void udp_netif_ip_addr_changed(const ip_addr_t* old_addr, const ip_addr_t* new_addr)
 {
   struct udp_pcb* upcb;
 
-  if (!ip4_addr_isany(new_addr)) {
+  if (!ip_addr_isany(old_addr) && !ip_addr_isany(new_addr)) {
     for (upcb = udp_pcbs; upcb != NULL; upcb = upcb->next) {
-      /* Is this an IPv4 pcb? */
-      if (IP_IS_V4_VAL(upcb->local_ip)) {
-        /* PCB bound to current local interface address? */
-        if (!ip4_addr_isany(ip_2_ip4(&upcb->local_ip)) &&
-            ip4_addr_cmp(ip_2_ip4(&upcb->local_ip), old_addr)) {
-          /* The PCB is bound to the old ipaddr and
-            * is set to bound to the new one instead */
-          ip_addr_copy_from_ip4(upcb->local_ip, *new_addr);
-        }
+      /* PCB bound to current local interface address? */
+      if (ip_addr_cmp(&upcb->local_ip, old_addr)) {
+        /* The PCB is bound to the old ipaddr and
+         * is set to bound to the new one instead */
+        ip_addr_copy(upcb->local_ip, *new_addr);
       }
     }
   }
 }
-#endif /* LWIP_IPV4 */
 
 #if UDP_DEBUG
 /**

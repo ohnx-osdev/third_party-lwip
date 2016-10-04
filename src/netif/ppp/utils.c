@@ -702,24 +702,20 @@ void ppp_dbglog(const char *fmt, ...) {
  * ppp_dump_packet - print out a packet in readable form if it is interesting.
  * Assumes len >= PPP_HDRLEN.
  */
-void ppp_dump_packet(const char *tag, unsigned char *p, int len) {
+void ppp_dump_packet(ppp_pcb *pcb, const char *tag, unsigned char *p, int len) {
     int proto;
 
     /*
-     * don't print IPv4 and IPv6 packets.
+     * don't print data packets, i.e. IPv4, IPv6, VJ, and compressed packets.
      */
     proto = (p[0] << 8) + p[1];
-    if (proto == PPP_IP)
+    if (proto < 0xC000 && (proto & ~0x8000) == proto)
 	return;
-#if PPP_IPV6_SUPPORT
-    if (proto == PPP_IPV6)
-	return;
-#endif
 
     /*
-     * don't print LCP echo request/reply packets if the link is up.
+     * don't print valid LCP echo request/reply packets if the link is up.
      */
-    if (proto == PPP_LCP && len >= 2 + HEADERLEN) {
+    if (proto == PPP_LCP && pcb->phase == PPP_PHASE_RUNNING && len >= 2 + HEADERLEN) {
 	unsigned char *lcp = p + 2;
 	int l = (lcp[2] << 8) + lcp[3];
 

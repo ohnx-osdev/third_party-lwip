@@ -4,7 +4,7 @@
  */
 
 /**
- * @defgroup pbuf Payload buffers (PBUF)
+ * @defgroup pbuf Packet buffers (PBUF)
  * @ingroup infrastructure
  *
  * Packets are built from the pbuf data structure. It supports dynamic
@@ -32,6 +32,44 @@
  *
  * Therefore, looping through a pbuf of a single packet, has an
  * loop end condition (tot_len == p->len), NOT (next == NULL).
+ *
+ * Example of custom pbuf usage for zero-copy RX:
+  @code{.c}
+typedef struct my_custom_pbuf
+{
+   struct pbuf_custom p;
+   void* dma_descriptor;
+} my_custom_pbuf_t;
+
+void my_pbuf_free_custom(void* p)
+{
+  my_custom_pbuf_t* my_puf = (my_custom_pbuf_t*)p;
+  free_rx_dma_descriptor(my_pbuf->dma_descriptor);
+  my_pbuf_pool_put(my_pbuf);
+}
+
+void eth_rx_irq()
+{
+  dma_descriptor*   dma_desc = get_RX_DMA_descriptor_from_ethernet();
+  my_custom_pbuf_t* my_pbuf  = my_pbuf_pool_get();
+
+  my_pbuf->p.custom_free_function = my_pbuf_free_custom;
+  my_pbuf->dma_descriptor         = dma_desc;
+
+  invalidate_cpu_cache(dma_desc->rx_data, dma_desc->rx_length);
+  
+  struct pbuf* p = pbuf_alloced_custom(PBUF_RAW,
+     dma_desc->rx_length,
+     PBUF_REF,
+     &my_pbuf->p,
+     dma_desc->rx_data,
+     dma_desc->max_buffer_size);
+
+  if(netif->input(p, netif) != ERR_OK) {
+    pbuf_free(p);
+  }
+}
+  @endcode
  */
 
 /*
@@ -743,10 +781,10 @@ pbuf_free(struct pbuf *p)
  * @param p first pbuf of chain
  * @return the number of pbufs in a chain
  */
-u8_t
+u16_t
 pbuf_clen(struct pbuf *p)
 {
-  u8_t len;
+  u16_t len;
 
   len = 0;
   while (p != NULL) {
@@ -766,12 +804,9 @@ pbuf_clen(struct pbuf *p)
 void
 pbuf_ref(struct pbuf *p)
 {
-  SYS_ARCH_DECL_PROTECT(old_level);
   /* pbuf given? */
   if (p != NULL) {
-    SYS_ARCH_PROTECT(old_level);
-    ++(p->ref);
-    SYS_ARCH_UNPROTECT(old_level);
+    SYS_ARCH_INC(p->ref, 1);
   }
 }
 
@@ -985,8 +1020,9 @@ pbuf_copy_partial(struct pbuf *buf, void *dataptr, u16_t len, u16_t offset)
     } else {
       /* copy from this buffer. maybe only partially. */
       buf_copy_len = p->len - offset;
-      if (buf_copy_len > len)
-          buf_copy_len = len;
+      if (buf_copy_len > len) {
+        buf_copy_len = len;
+      }
       /* copy the necessary parts of the buffer */
       MEMCPY(&((char*)dataptr)[left], &((char*)p->payload)[offset], buf_copy_len);
       copied_total += buf_copy_len;
@@ -1225,7 +1261,7 @@ pbuf_fill_chksum(struct pbuf *p, u16_t start_offset, const void *dataptr,
 }
 #endif /* LWIP_CHECKSUM_ON_COPY */
 
-/** 
+/**
  * @ingroup pbuf
  * Get one byte from the specified position in a pbuf
  * WARNING: returns zero for offset >= p->tot_len
@@ -1237,6 +1273,24 @@ pbuf_fill_chksum(struct pbuf *p, u16_t start_offset, const void *dataptr,
 u8_t
 pbuf_get_at(struct pbuf* p, u16_t offset)
 {
+  int ret = pbuf_try_get_at(p, offset);
+  if (ret >= 0) {
+    return (u8_t)ret;
+  }
+  return 0;
+}
+
+/**
+ * @ingroup pbuf
+ * Get one byte from the specified position in a pbuf
+ *
+ * @param p pbuf to parse
+ * @param offset offset into p of the byte to return
+ * @return byte at an offset into p [0..0xFF] OR negative if 'offset' >= p->tot_len
+ */
+int
+pbuf_try_get_at(struct pbuf* p, u16_t offset)
+{
   u16_t q_idx;
   struct pbuf* q = pbuf_skip(p, offset, &q_idx);
 
@@ -1244,7 +1298,7 @@ pbuf_get_at(struct pbuf* p, u16_t offset)
   if ((q != NULL) && (q->len > q_idx)) {
     return ((u8_t*)q->payload)[q_idx];
   }
-  return 0;
+  return -1;
 }
 
 /**
@@ -1284,25 +1338,29 @@ pbuf_memcmp(struct pbuf* p, u16_t offset, const void* s2, u16_t n)
 {
   u16_t start = offset;
   struct pbuf* q = p;
-
-  /* get the correct pbuf */
+  u16_t i;
+ 
+  /* pbuf long enough to perform check? */
+  if(p->tot_len < (offset + n)) {
+    return 0xffff;
+  }
+ 
+  /* get the correct pbuf from chain. We know it succeeds because of p->tot_len check above. */
   while ((q != NULL) && (q->len <= start)) {
     start -= q->len;
     q = q->next;
   }
+ 
   /* return requested data if pbuf is OK */
-  if ((q != NULL) && (q->len > start)) {
-    u16_t i;
-    for (i = 0; i < n; i++) {
-      u8_t a = pbuf_get_at(q, start + i);
-      u8_t b = ((const u8_t*)s2)[i];
-      if (a != b) {
-        return i+1;
-      }
+  for (i = 0; i < n; i++) {
+    /* We know pbuf_get_at() succeeds because of p->tot_len check above. */
+    u8_t a = pbuf_get_at(q, start + i);
+    u8_t b = ((const u8_t*)s2)[i];
+    if (a != b) {
+      return i+1;
     }
-    return 0;
   }
-  return 0xffff;
+  return 0;
 }
 
 /**

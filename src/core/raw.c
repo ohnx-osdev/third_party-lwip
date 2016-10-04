@@ -4,6 +4,13 @@
  * different types of protocols besides (or overriding) those
  * already available in lwIP.\n
  * See also @ref raw_raw
+ * 
+ * @defgroup raw_raw RAW
+ * @ingroup callbackstyle_api
+ * Implementation of raw protocol PCBs for low-level handling of
+ * different types of protocols besides (or overriding) those
+ * already available in lwIP.\n
+ * @see @ref raw_api
  */
 
 /*
@@ -36,21 +43,6 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- */
-
-/**
- * @defgroup raw_api RAW API
- * @ingroup callbackstyle_api
- * @verbinclude "rawapi.txt"
- */
-
-/**
- * @defgroup raw_raw RAW
- * @ingroup raw_api
- * Implementation of raw protocol PCBs for low-level handling of
- * different types of protocols besides (or overriding) those
- * already available in lwIP.\n
- * @see @ref raw_api
  */
 
 #include "lwip/opt.h"
@@ -88,7 +80,7 @@ raw_input_match(struct raw_pcb *pcb, u8_t broadcast)
     return 1;
   }
 #endif /* LWIP_IPV4 && LWIP_IPV6 */
-  
+
   /* Only need to check PCB if incoming IP version matches PCB IP version */
   if (IP_ADDR_PCB_VERSION_MATCH_EXACT(pcb, ip_current_dest_addr())) {
 #if LWIP_IPV4
@@ -111,7 +103,7 @@ raw_input_match(struct raw_pcb *pcb, u8_t broadcast)
       return 1;
     }
   }
-  
+
   return 0;
 }
 
@@ -204,7 +196,7 @@ raw_input(struct pbuf *p, struct netif *inp)
  * Bind a RAW PCB.
  *
  * @param pcb RAW PCB to be bound with a local address ipaddr.
- * @param ipaddr local IP address to bind with. Use IP_ADDR_ANY to
+ * @param ipaddr local IP address to bind with. Use IP4_ADDR_ANY to
  * bind to all local interfaces.
  *
  * @return lwIP error code.
@@ -479,7 +471,9 @@ raw_new(u8_t proto)
  * @return The RAW PCB which was created. NULL if the PCB data structure
  * could not be allocated.
  *
- * @param type IP address type, see IPADDR_TYPE_XX definitions.
+ * @param type IP address type, see @ref lwip_ip_addr_type definitions.
+ * If you want to listen to IPv4 and IPv6 (dual-stack) packets,
+ * supply @ref IPADDR_TYPE_ANY as argument and bind to @ref IP_ANY_TYPE.
  * @param proto the protocol number (next header) of the IPv6 packet payload
  *              (e.g. IP6_NEXTH_ICMP6)
  *
@@ -499,6 +493,27 @@ raw_new_ip_type(u8_t type, u8_t proto)
   LWIP_UNUSED_ARG(type);
 #endif /* LWIP_IPV4 && LWIP_IPV6 */
   return pcb;
+}
+
+/** This function is called from netif.c when address is changed
+ *
+ * @param old_addr IP address of the netif before change
+ * @param new_addr IP address of the netif after change
+ */
+void raw_netif_ip_addr_changed(const ip_addr_t* old_addr, const ip_addr_t* new_addr)
+{
+  struct raw_pcb* rpcb;
+
+  if (!ip_addr_isany(old_addr) && !ip_addr_isany(new_addr)) {
+    for (rpcb = raw_pcbs; rpcb != NULL; rpcb = rpcb->next) {
+      /* PCB bound to current local interface address? */
+      if (ip_addr_cmp(&rpcb->local_ip, old_addr)) {
+        /* The PCB is bound to the old ipaddr and
+         * is set to bound to the new one instead */
+        ip_addr_copy(rpcb->local_ip, *new_addr);
+      }
+    }
+  }
 }
 
 #endif /* LWIP_RAW */

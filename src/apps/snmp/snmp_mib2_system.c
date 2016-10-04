@@ -86,6 +86,7 @@ static u16_t*       syslocation_wr_len        = NULL; /* if writable, points to 
 static u16_t        syslocation_bufsize       = 0;    /* 0=not writable */
 
 /**
+ * @ingroup snmp_mib2
  * Initializes sysDescr pointers.
  *
  * @param str if non-NULL then copy str pointer
@@ -101,10 +102,11 @@ snmp_mib2_set_sysdescr(const u8_t *str, const u16_t *len)
 }
 
 /**
+ * @ingroup snmp_mib2
  * Initializes sysContact pointers
  *
- *  * @param ocstr if non-NULL then copy str pointer
- * @param ocstrlen points to string length, excluding zero terminator. 
+ * @param ocstr if non-NULL then copy str pointer
+ * @param ocstrlen points to string length, excluding zero terminator.
  *        if set to NULL it is assumed that ocstr is NULL-terminated.
  * @param bufsize size of the buffer in bytes.
  *        (this is required because the buffer can be overwritten by snmp-set)
@@ -124,7 +126,10 @@ snmp_mib2_set_syscontact(u8_t *ocstr, u16_t *ocstrlen, u16_t bufsize)
   }
 }
 
-/** see \ref snmp_mib2_set_syscontact but set pointer to readonly memory */
+/**
+ * @ingroup snmp_mib2
+ * see \ref snmp_mib2_set_syscontact but set pointer to readonly memory
+ */
 void
 snmp_mib2_set_syscontact_readonly(const u8_t *ocstr, const u16_t *ocstrlen)
 {
@@ -139,10 +144,11 @@ snmp_mib2_set_syscontact_readonly(const u8_t *ocstr, const u16_t *ocstrlen)
 
 
 /**
+ * @ingroup snmp_mib2
  * Initializes sysName pointers
  *
  * @param ocstr if non-NULL then copy str pointer
- * @param ocstrlen points to string length, excluding zero terminator. 
+ * @param ocstrlen points to string length, excluding zero terminator.
  *        if set to NULL it is assumed that ocstr is NULL-terminated.
  * @param bufsize size of the buffer in bytes.
  *        (this is required because the buffer can be overwritten by snmp-set)
@@ -162,7 +168,10 @@ snmp_mib2_set_sysname(u8_t *ocstr, u16_t *ocstrlen, u16_t bufsize)
   }
 }
 
-/** see \ref snmp_mib2_set_sysname but set pointer to readonly memory */
+/**
+ * @ingroup snmp_mib2
+ * see \ref snmp_mib2_set_sysname but set pointer to readonly memory
+ */
 void
 snmp_mib2_set_sysname_readonly(const u8_t *ocstr, const u16_t *ocstrlen)
 {
@@ -176,10 +185,11 @@ snmp_mib2_set_sysname_readonly(const u8_t *ocstr, const u16_t *ocstrlen)
 }
 
 /**
+ * @ingroup snmp_mib2
  * Initializes sysLocation pointers
  *
  * @param ocstr if non-NULL then copy str pointer
- * @param ocstrlen points to string length, excluding zero terminator. 
+ * @param ocstrlen points to string length, excluding zero terminator.
  *        if set to NULL it is assumed that ocstr is NULL-terminated.
  * @param bufsize size of the buffer in bytes.
  *        (this is required because the buffer can be overwritten by snmp-set)
@@ -199,7 +209,10 @@ snmp_mib2_set_syslocation(u8_t *ocstr, u16_t *ocstrlen, u16_t bufsize)
   }
 }
 
-/** see \ref snmp_mib2_set_syslocation but set pointer to readonly memory */
+/**
+ * @ingroup snmp_mib2
+ * see \ref snmp_mib2_set_syslocation but set pointer to readonly memory
+ */
 void
 snmp_mib2_set_syslocation_readonly(const u8_t *ocstr, const u16_t *ocstrlen)
 {
@@ -265,7 +278,7 @@ system_get_value(const struct snmp_scalar_array_node_def *node, void *value)
   return result;
 }
 
-static snmp_err_t 
+static snmp_err_t
 system_set_test(const struct snmp_scalar_array_node_def *node, u16_t len, void *value)
 {
   snmp_err_t ret = SNMP_ERR_WRONGVALUE;
@@ -311,7 +324,7 @@ system_set_test(const struct snmp_scalar_array_node_def *node, u16_t len, void *
   return ret;
 }
 
-static snmp_err_t 
+static snmp_err_t
 system_set_value(const struct snmp_scalar_array_node_def *node, u16_t len, void *value)
 {
   u8_t*  var_wr = NULL;

@@ -106,7 +106,7 @@ const struct lwip_cyclic_timer lwip_cyclic_timers[] = {
 #endif /* LWIP_IPV6 */
 };
 
-#if LWIP_TIMERS
+#if LWIP_TIMERS && !LWIP_TIMERS_CUSTOM
 
 /** The one and only timeout list */
 static struct sys_timeo *next_timeout;
@@ -246,6 +246,12 @@ sys_timeout(u32_t msecs, sys_timeout_handler handler, void *arg)
       if (t->next == NULL || t->next->time > timeout->time) {
         if (t->next != NULL) {
           t->next->time -= timeout->time;
+        } else if (timeout->time > msecs) {
+          /* If this is the case, 'timeouts_last_time' and 'now' differs too much.
+             This can be due to sys_check_timeouts() not being called at the right
+             times, but also when stopping in a breakpoint. Anyway, let's assume
+             this is not wanted, so add the first timer's time instead of 'diff' */
+          timeout->time = msecs + next_timeout->time;
         }
         timeout->next = t->next;
         t->next = timeout;
@@ -292,13 +298,15 @@ sys_untimeout(sys_timeout_handler handler, void *arg)
   return;
 }
 
-/** Handle timeouts for NO_SYS==1 (i.e. without using
+/**
+ * @ingroup lwip_nosys
+ * Handle timeouts for NO_SYS==1 (i.e. without using
  * tcpip_thread/sys_timeouts_mbox_fetch(). Uses sys_now() to call timeout
  * handler functions when timeouts expire.
  *
  * Must be called periodically from your main loop.
  */
-#if !NO_SYS
+#if !NO_SYS && !defined __DOXYGEN__
 static
 #endif /* !NO_SYS */
 void
@@ -418,10 +426,10 @@ again:
 
 #endif /* NO_SYS */
 
-#else /* LWIP_TIMERS */
+#else /* LWIP_TIMERS && !LWIP_TIMERS_CUSTOM */
 /* Satisfy the TCP code which calls this function */
 void
 tcp_timer_needed(void)
 {
 }
-#endif /* LWIP_TIMERS */
+#endif /* LWIP_TIMERS && !LWIP_TIMERS_CUSTOM */

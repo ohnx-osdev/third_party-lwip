@@ -52,7 +52,6 @@
 #include "lwip/stats.h"
 #include "lwip/ip6.h"
 #include "lwip/ip6_addr.h"
-#include "lwip/inet_chksum.h"
 #if LWIP_TCP_TIMESTAMPS
 #include "lwip/sys.h"
 #endif
@@ -350,6 +349,7 @@ tcp_write_checks(struct tcp_pcb *pcb, u16_t len)
 }
 
 /**
+ * @ingroup tcp_raw
  * Write data for sending (but does not send it immediately).
  *
  * It waits in the expectation of more data being sent soon (as
@@ -874,7 +874,8 @@ tcp_build_wnd_scale_option(u32_t *opts)
 }
 #endif
 
-/** Send an ACK without data.
+/**
+ * Send an ACK without data.
  *
  * @param pcb Protocol control block for the TCP connection to send the ACK
  */
@@ -946,6 +947,7 @@ tcp_send_empty_ack(struct tcp_pcb *pcb)
 }
 
 /**
+ * @ingroup tcp_raw
  * Find out what we can send and send it
  *
  * @param pcb Protocol control block for the TCP connection to send data
@@ -1376,7 +1378,7 @@ tcp_rexmit_rto(struct tcp_pcb *pcb)
 /**
  * Requeue the first unacked segment for retransmission
  *
- * Called by tcp_receive() for fast retramsmit.
+ * Called by tcp_receive() for fast retransmit.
  *
  * @param pcb the tcp_pcb for which to retransmit the first unacked segment
  */
@@ -1535,6 +1537,7 @@ tcp_zero_window_probe(struct tcp_pcb *pcb)
   struct tcp_seg *seg;
   u16_t len;
   u8_t is_fin;
+  u32_t snd_nxt;
   struct netif *netif;
 
   LWIP_DEBUGF(TCP_DEBUG, ("tcp_zero_window_probe: sending ZERO WINDOW probe to "));
@@ -1577,6 +1580,12 @@ tcp_zero_window_probe(struct tcp_pcb *pcb)
        (unsent), seg->p->payload points to the IP header or TCP header.
        Ensure we copy the first TCP data byte: */
     pbuf_copy_partial(seg->p, d, 1, seg->p->tot_len - seg->len);
+  }
+
+  /* The byte may be acknowledged without the window being opened. */
+  snd_nxt = ntohl(seg->tcphdr->seqno) + 1;
+  if (TCP_SEQ_LT(pcb->snd_nxt, snd_nxt)) {
+    pcb->snd_nxt = snd_nxt;
   }
 
   netif = ip_route(&pcb->local_ip, &pcb->remote_ip);
