@@ -42,7 +42,7 @@
 #define IFNAME1 'n'
 
 #define IO_TYPE_FD 1
-#define IO_TYPE_MSGPIPE 2
+#define IO_TYPE_CHANNEL 2
 
 struct ethernetif {
   /* Add whatever per-interface state that is needed here. */
@@ -65,10 +65,10 @@ static int read_packet(struct netif *netif, void *buf, size_t count)
   if (ethernetif->io_type == IO_TYPE_FD) {
     return read(ethernetif->io.fd, buf, count);
   }
-  if (ethernetif->io_type == IO_TYPE_MSGPIPE) {
+  if (ethernetif->io_type == IO_TYPE_CHANNEL) {
     uint32_t sz = count;
     mx_status_t r;
-    if ((r = mx_msgpipe_read(ethernetif->io.h, buf, &sz, 0, 0, 0)) < 0)
+    if ((r = mx_channel_read(ethernetif->io.h, 0, buf, sz, &sz, NULL, 0, NULL)) < 0)
       return -1;
     return sz;
   }
@@ -83,9 +83,9 @@ static int write_packet(struct netif *netif, const void *buf, size_t count)
   if (ethernetif->io_type == IO_TYPE_FD) {
     return write(ethernetif->io.fd, buf, count);
   }
-  if (ethernetif->io_type == IO_TYPE_MSGPIPE) {
+  if (ethernetif->io_type == IO_TYPE_CHANNEL) {
     ssize_t r;
-    if ((r = mx_msgpipe_write(ethernetif->io.h, buf, count, 0, 0, 0)) < 0)
+    if ((r = mx_channel_write(ethernetif->io.h, 0, buf, count, NULL, 0)) < 0)
       return -1;
     return count;
   }
@@ -141,7 +141,7 @@ low_level_init(struct netif *netif)
 
   if ((h = mxio_get_startup_handle(MX_HND_INFO(MX_HND_TYPE_USER0, 0))) !=
       MX_HANDLE_INVALID) {
-    ethernetif->io_type = IO_TYPE_MSGPIPE;
+    ethernetif->io_type = IO_TYPE_CHANNEL;
     ethernetif->io.h = h;
     printf("ethernetif_init: using a startup handle\n");
   } else if ((fd = open_ethernet_device(netif->hwaddr,
@@ -315,7 +315,7 @@ ethernetif_thread(void *arg)
     if (ethernetif->io_type == IO_TYPE_FD) {
       mxio_wait_fd(ethernetif->io.fd, MXIO_EVT_READABLE, NULL,
                    MX_TIME_INFINITE);
-    } else if (ethernetif->io_type == IO_TYPE_MSGPIPE) {
+    } else if (ethernetif->io_type == IO_TYPE_CHANNEL) {
       mx_status_t r;
       mx_signals_state_t pending;
       r = mx_handle_wait_one(ethernetif->io.h,
