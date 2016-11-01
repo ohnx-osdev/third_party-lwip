@@ -317,7 +317,7 @@ ethernetif_thread(void *arg)
                    MX_TIME_INFINITE);
     } else if (ethernetif->io_type == IO_TYPE_CHANNEL) {
       mx_status_t r;
-      mx_signals_state_t pending;
+      mx_signals_t pending;
       r = mx_handle_wait_one(ethernetif->io.h,
                              MX_SIGNAL_READABLE | MX_SIGNAL_PEER_CLOSED,
                              MX_TIME_INFINITE, &pending);
@@ -325,7 +325,7 @@ ethernetif_thread(void *arg)
         printf("ethernetif: handle wait error (%d)\n", r);
         return;
       }
-      if (pending.satisfied & MX_SIGNAL_PEER_CLOSED) {
+      if (pending & MX_SIGNAL_PEER_CLOSED) {
         printf("ethernetif: handle closed\n");
         return;
       }
