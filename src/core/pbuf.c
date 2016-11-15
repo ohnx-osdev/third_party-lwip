@@ -41,17 +41,22 @@ typedef struct my_custom_pbuf
    void* dma_descriptor;
 } my_custom_pbuf_t;
 
+LWIP_MEMPOOL_DECLARE(RX_POOL, 10, sizeof(my_custom_pbuf_t), "Zero-copy RX PBUF pool");
+
 void my_pbuf_free_custom(void* p)
 {
   my_custom_pbuf_t* my_puf = (my_custom_pbuf_t*)p;
+
+  LOCK_INTERRUPTS();
   free_rx_dma_descriptor(my_pbuf->dma_descriptor);
-  my_pbuf_pool_put(my_pbuf);
+  LWIP_MEMPOOL_FREE(RX_POOL, my_pbuf);
+  UNLOCK_INTERRUPTS();
 }
 
 void eth_rx_irq()
 {
   dma_descriptor*   dma_desc = get_RX_DMA_descriptor_from_ethernet();
-  my_custom_pbuf_t* my_pbuf  = my_pbuf_pool_get();
+  my_custom_pbuf_t* my_pbuf  = (my_custom_pbuf_t*)LWIP_MEMPOOL_ALLOC(RX_POOL);
 
   my_pbuf->p.custom_free_function = my_pbuf_free_custom;
   my_pbuf->dma_descriptor         = dma_desc;
@@ -782,7 +787,7 @@ pbuf_free(struct pbuf *p)
  * @return the number of pbufs in a chain
  */
 u16_t
-pbuf_clen(struct pbuf *p)
+pbuf_clen(const struct pbuf *p)
 {
   u16_t len;
 
@@ -929,12 +934,12 @@ pbuf_dechain(struct pbuf *p)
  *                 enough to hold p_from
  */
 err_t
-pbuf_copy(struct pbuf *p_to, struct pbuf *p_from)
+pbuf_copy(struct pbuf *p_to, const struct pbuf *p_from)
 {
   u16_t offset_to=0, offset_from=0, len;
 
   LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("pbuf_copy(%p, %p)\n",
-    (void*)p_to, (void*)p_from));
+    (const void*)p_to, (const void*)p_from));
 
   /* is the target big enough to hold the source? */
   LWIP_ERROR("pbuf_copy: target not big enough to hold source", ((p_to != NULL) &&
@@ -996,9 +1001,9 @@ pbuf_copy(struct pbuf *p_to, struct pbuf *p_from)
  * @return the number of bytes copied, or 0 on failure
  */
 u16_t
-pbuf_copy_partial(struct pbuf *buf, void *dataptr, u16_t len, u16_t offset)
+pbuf_copy_partial(const struct pbuf *buf, void *dataptr, u16_t len, u16_t offset)
 {
-  struct pbuf *p;
+  const struct pbuf *p;
   u16_t left;
   u16_t buf_copy_len;
   u16_t copied_total = 0;
@@ -1084,6 +1089,24 @@ void pbuf_split_64k(struct pbuf *p, struct pbuf **rest)
 }
 #endif /* LWIP_TCP && TCP_QUEUE_OOSEQ && LWIP_WND_SCALE */
 
+/* Actual implementation of pbuf_skip() but returning const pointer... */
+static const struct pbuf*
+pbuf_skip_const(const struct pbuf* in, u16_t in_offset, u16_t* out_offset)
+{
+  u16_t offset_left = in_offset;
+  const struct pbuf* q = in;
+
+  /* get the correct pbuf */
+  while ((q != NULL) && (q->len <= offset_left)) {
+    offset_left -= q->len;
+    q = q->next;
+  }
+  if (out_offset != NULL) {
+    *out_offset = offset_left;
+  }
+  return q;
+}
+
 /**
  * @ingroup pbuf
  * Skip a number of bytes at the start of a pbuf
@@ -1096,18 +1119,7 @@ void pbuf_split_64k(struct pbuf *p, struct pbuf **rest)
 struct pbuf*
 pbuf_skip(struct pbuf* in, u16_t in_offset, u16_t* out_offset)
 {
-  u16_t offset_left = in_offset;
-  struct pbuf* q = in;
-
-  /* get the correct pbuf */
-  while ((q != NULL) && (q->len <= offset_left)) {
-    offset_left -= q->len;
-    q = q->next;
-  }
-  if (out_offset != NULL) {
-    *out_offset = offset_left;
-  }
-  return q;
+  return (struct pbuf*)(size_t)pbuf_skip_const(in, in_offset, out_offset);
 }
 
 /**
@@ -1271,7 +1283,7 @@ pbuf_fill_chksum(struct pbuf *p, u16_t start_offset, const void *dataptr,
  * @return byte at an offset into p OR ZERO IF 'offset' >= p->tot_len
  */
 u8_t
-pbuf_get_at(struct pbuf* p, u16_t offset)
+pbuf_get_at(const struct pbuf* p, u16_t offset)
 {
   int ret = pbuf_try_get_at(p, offset);
   if (ret >= 0) {
@@ -1289,10 +1301,10 @@ pbuf_get_at(struct pbuf* p, u16_t offset)
  * @return byte at an offset into p [0..0xFF] OR negative if 'offset' >= p->tot_len
  */
 int
-pbuf_try_get_at(struct pbuf* p, u16_t offset)
+pbuf_try_get_at(const struct pbuf* p, u16_t offset)
 {
   u16_t q_idx;
-  struct pbuf* q = pbuf_skip(p, offset, &q_idx);
+  const struct pbuf* q = pbuf_skip_const(p, offset, &q_idx);
 
   /* return requested data if pbuf is OK */
   if ((q != NULL) && (q->len > q_idx)) {
@@ -1334,10 +1346,10 @@ pbuf_put_at(struct pbuf* p, u16_t offset, u8_t data)
  *         (0xffff if p is too short, diffoffset+1 otherwise)
  */
 u16_t
-pbuf_memcmp(struct pbuf* p, u16_t offset, const void* s2, u16_t n)
+pbuf_memcmp(const struct pbuf* p, u16_t offset, const void* s2, u16_t n)
 {
   u16_t start = offset;
-  struct pbuf* q = p;
+  const struct pbuf* q = p;
   u16_t i;
  
   /* pbuf long enough to perform check? */
@@ -1376,7 +1388,7 @@ pbuf_memcmp(struct pbuf* p, u16_t offset, const void* s2, u16_t n)
  * @return 0xFFFF if substr was not found in p or the index where it was found
  */
 u16_t
-pbuf_memfind(struct pbuf* p, const void* mem, u16_t mem_len, u16_t start_offset)
+pbuf_memfind(const struct pbuf* p, const void* mem, u16_t mem_len, u16_t start_offset)
 {
   u16_t i;
   u16_t max = p->tot_len - mem_len;
@@ -1403,7 +1415,7 @@ pbuf_memfind(struct pbuf* p, const void* mem, u16_t mem_len, u16_t start_offset)
  * @return 0xFFFF if substr was not found in p or the index where it was found
  */
 u16_t
-pbuf_strstr(struct pbuf* p, const char* substr)
+pbuf_strstr(const struct pbuf* p, const char* substr)
 {
   size_t substr_len;
   if ((substr == NULL) || (substr[0] == 0) || (p->tot_len == 0xFFFF)) {

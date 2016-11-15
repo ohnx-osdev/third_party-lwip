@@ -259,7 +259,7 @@ netif_add(struct netif *netif,
 #if LWIP_IPV6
   for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
     ip_addr_set_zero_ip6(&netif->ip6_addr[i]);
-    netif->ip6_addr_state[0] = IP6_ADDR_INVALID;
+    netif->ip6_addr_state[i] = IP6_ADDR_INVALID;
   }
   netif->output_ip6 = netif_null_output_ip6;
 #endif /* LWIP_IPV6 */
@@ -1175,11 +1175,11 @@ netif_create_ip6_linklocal_address(struct netif *netif, u8_t from_mac_48bit)
   /* Generate interface ID. */
   if (from_mac_48bit) {
     /* Assume hwaddr is a 48-bit IEEE 802 MAC. Convert to EUI-64 address. Complement Group bit. */
-    ip_2_ip6(&netif->ip6_addr[0])->addr[2] = htonl((((u32_t)(netif->hwaddr[0] ^ 0x02)) << 24) |
+    ip_2_ip6(&netif->ip6_addr[0])->addr[2] = lwip_htonl((((u32_t)(netif->hwaddr[0] ^ 0x02)) << 24) |
         ((u32_t)(netif->hwaddr[1]) << 16) |
         ((u32_t)(netif->hwaddr[2]) << 8) |
         (0xff));
-    ip_2_ip6(&netif->ip6_addr[0])->addr[3] = htonl((0xfeul << 24) |
+    ip_2_ip6(&netif->ip6_addr[0])->addr[3] = lwip_htonl((0xfeul << 24) |
         ((u32_t)(netif->hwaddr[3]) << 16) |
         ((u32_t)(netif->hwaddr[4]) << 8) |
         (netif->hwaddr[5]));

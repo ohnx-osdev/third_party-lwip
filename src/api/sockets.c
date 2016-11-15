@@ -81,25 +81,25 @@
 #define IP4ADDR_PORT_TO_SOCKADDR(sin, ipaddr, port) do { \
       (sin)->sin_len = sizeof(struct sockaddr_in); \
       (sin)->sin_family = AF_INET; \
-      (sin)->sin_port = htons((port)); \
+      (sin)->sin_port = lwip_htons((port)); \
       inet_addr_from_ipaddr(&(sin)->sin_addr, ipaddr); \
       memset((sin)->sin_zero, 0, SIN_ZERO_LEN); }while(0)
 #define SOCKADDR4_TO_IP4ADDR_PORT(sin, ipaddr, port) do { \
     inet_addr_to_ipaddr(ip_2_ip4(ipaddr), &((sin)->sin_addr)); \
-    (port) = ntohs((sin)->sin_port); }while(0)
+    (port) = lwip_ntohs((sin)->sin_port); }while(0)
 #endif /* LWIP_IPV4 */
 
 #if LWIP_IPV6
 #define IP6ADDR_PORT_TO_SOCKADDR(sin6, ipaddr, port) do { \
       (sin6)->sin6_len = sizeof(struct sockaddr_in6); \
       (sin6)->sin6_family = AF_INET6; \
-      (sin6)->sin6_port = htons((port)); \
+      (sin6)->sin6_port = lwip_htons((port)); \
       (sin6)->sin6_flowinfo = 0; \
       inet6_addr_from_ip6addr(&(sin6)->sin6_addr, ipaddr); \
       (sin6)->sin6_scope_id = 0; }while(0)
 #define SOCKADDR6_TO_IP6ADDR_PORT(sin6, ipaddr, port) do { \
     inet6_addr_to_ip6addr(ip_2_ip6(ipaddr), &((sin6)->sin6_addr)); \
-    (port) = ntohs((sin6)->sin6_port); }while(0)
+    (port) = lwip_ntohs((sin6)->sin6_port); }while(0)
 #endif /* LWIP_IPV6 */
 
 #if LWIP_IPV4 && LWIP_IPV6
@@ -288,34 +288,6 @@ static struct lwip_select_cb *select_cb_list;
 /** This counter is increased from lwip_select when the list is changed
     and checked in event_callback to see if it has changed. */
 static volatile int select_cb_ctr;
-
-/** Table to quickly map an lwIP error (err_t) to a socket error
-  * by using -err as an index */
-static const int err_to_errno_table[] = {
-  0,             /* ERR_OK          0      No error, everything OK. */
-  ENOMEM,        /* ERR_MEM        -1      Out of memory error.     */
-  ENOBUFS,       /* ERR_BUF        -2      Buffer error.            */
-  EWOULDBLOCK,   /* ERR_TIMEOUT    -3      Timeout                  */
-  EHOSTUNREACH,  /* ERR_RTE        -4      Routing problem.         */
-  EINPROGRESS,   /* ERR_INPROGRESS -5      Operation in progress    */
-  EINVAL,        /* ERR_VAL        -6      Illegal value.           */
-  EWOULDBLOCK,   /* ERR_WOULDBLOCK -7      Operation would block.   */
-  EADDRINUSE,    /* ERR_USE        -8      Address in use.          */
-  EALREADY,      /* ERR_ALREADY    -9      Already connecting.      */
-  EISCONN,       /* ERR_ISCONN     -10     Conn already established.*/
-  ENOTCONN,      /* ERR_CONN       -11     Not connected.           */
-  -1,            /* ERR_IF         -12     Low-level netif error    */
-  ECONNABORTED,  /* ERR_ABRT       -13     Connection aborted.      */
-  ECONNRESET,    /* ERR_RST        -14     Connection reset.        */
-  ENOTCONN,      /* ERR_CLSD       -15     Connection closed.       */
-  EIO            /* ERR_ARG        -16     Illegal argument.        */
-};
-
-#define ERR_TO_ERRNO_TABLE_SIZE LWIP_ARRAYSIZE(err_to_errno_table)
-
-#define err_to_errno(err) \
-  ((unsigned)(-(signed)(err)) < ERR_TO_ERRNO_TABLE_SIZE ? \
-    err_to_errno_table[-(signed)(err)] : EIO)
 
 #if LWIP_SOCKET_SET_ERRNO
 #ifndef set_errno
@@ -1286,12 +1258,12 @@ lwip_writev(int s, const struct iovec *iov, int iovcnt)
  * the sockets enabled that had events.
  *
  * @param maxfdp1 the highest socket index in the sets
- * @param readset_in:    set of sockets to check for read events
- * @param writeset_in:   set of sockets to check for write events
- * @param exceptset_in:  set of sockets to check for error events
- * @param readset_out:   set of sockets that had read events
- * @param writeset_out:  set of sockets that had write events
- * @param exceptset_out: set os sockets that had error events
+ * @param readset_in    set of sockets to check for read events
+ * @param writeset_in   set of sockets to check for write events
+ * @param exceptset_in  set of sockets to check for error events
+ * @param readset_out   set of sockets that had read events
+ * @param writeset_out  set of sockets that had write events
+ * @param exceptset_out set os sockets that had error events
  * @return number of sockets that had events (read/write/exception) (>= 0)
  */
 static int
@@ -2798,7 +2770,7 @@ lwip_socket_drop_registered_memberships(int s)
       ip4_addr_set_zero(&socket_ipv4_multicast_memberships[i].if_addr);
       ip4_addr_set_zero(&socket_ipv4_multicast_memberships[i].multi_addr);
 
-      netconn_join_leave_group(sockets[s].conn, &multi_addr, &if_addr, NETCONN_LEAVE);
+      netconn_join_leave_group(sock->conn, &multi_addr, &if_addr, NETCONN_LEAVE);
     }
   }
 }

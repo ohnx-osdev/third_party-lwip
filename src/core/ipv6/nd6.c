@@ -149,6 +149,8 @@ nd6_input(struct pbuf *p, struct netif *inp)
 
     /* Unsolicited NA?*/
     if (ip6_addr_ismulticast(ip6_current_dest_addr())) {
+      ip6_addr_t target_address;
+      
       /* This is an unsolicited NA.
        * link-layer changed?
        * part of DAD mechanism? */
@@ -172,14 +174,14 @@ nd6_input(struct pbuf *p, struct netif *inp)
         return;
       }
 
-      /* Override ip6_current_dest_addr() so that we have an aligned copy. */
-      ip6_addr_set(ip6_current_dest_addr(), &(na_hdr->target_address));
+      /* Create an aligned copy. */
+      ip6_addr_set(&target_address, &(na_hdr->target_address));
 
 #if LWIP_IPV6_DUP_DETECT_ATTEMPTS
       /* If the target address matches this netif, it is a DAD response. */
       for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
         if (!ip6_addr_isinvalid(netif_ip6_addr_state(inp, i)) &&
-            ip6_addr_cmp(ip6_current_dest_addr(), netif_ip6_addr(inp, i))) {
+            ip6_addr_cmp(&target_address, netif_ip6_addr(inp, i))) {
           /* We are using a duplicate address. */
           netif_ip6_addr_set_state(inp, i, IP6_ADDR_INVALID);
 
@@ -191,8 +193,8 @@ nd6_input(struct pbuf *p, struct netif *inp)
 
 #if LWIP_IPV6_AUTOCONFIG
           /* Check to see if this address was autoconfigured. */
-          if (!ip6_addr_islinklocal(ip6_current_dest_addr())) {
-            i = nd6_get_onlink_prefix(ip6_current_dest_addr(), inp);
+          if (!ip6_addr_islinklocal(&target_address)) {
+            i = nd6_get_onlink_prefix(&target_address, inp);
             if (i >= 0) {
               /* Mark this prefix as duplicate, so that we don't use it
                * to generate this address again. */
@@ -208,22 +210,24 @@ nd6_input(struct pbuf *p, struct netif *inp)
 #endif /* LWIP_IPV6_DUP_DETECT_ATTEMPTS */
 
       /* This is an unsolicited NA, most likely there was a LLADDR change. */
-      i = nd6_find_neighbor_cache_entry(ip6_current_dest_addr());
+      i = nd6_find_neighbor_cache_entry(&target_address);
       if (i >= 0) {
         if (na_hdr->flags & ND6_FLAG_OVERRIDE) {
           MEMCPY(neighbor_cache[i].lladdr, lladdr_opt->addr, inp->hwaddr_len);
         }
       }
     } else {
+      ip6_addr_t target_address;
+
       /* This is a solicited NA.
        * neighbor address resolution response?
        * neighbor unreachability detection response? */
 
-      /* Override ip6_current_dest_addr() so that we have an aligned copy. */
-      ip6_addr_set(ip6_current_dest_addr(), &(na_hdr->target_address));
+      /* Create an aligned copy. */
+      ip6_addr_set(&target_address, &(na_hdr->target_address));
 
       /* Find the cache entry corresponding to this na. */
-      i = nd6_find_neighbor_cache_entry(ip6_current_dest_addr());
+      i = nd6_find_neighbor_cache_entry(&target_address);
       if (i < 0) {
         /* We no longer care about this target address. drop it. */
         pbuf_free(p);
@@ -327,6 +331,8 @@ nd6_input(struct pbuf *p, struct netif *inp)
         }
       }
     } else {
+      ip6_addr_t target_address;
+      
       /* Sender is trying to resolve our address. */
       /* Verify that they included their own link-layer address. */
       if (lladdr_opt == NULL) {
@@ -370,11 +376,11 @@ nd6_input(struct pbuf *p, struct netif *inp)
         neighbor_cache[i].counter.delay_time = LWIP_ND6_DELAY_FIRST_PROBE_TIME / ND6_TMR_INTERVAL;
       }
 
-      /* Override ip6_current_dest_addr() so that we have an aligned copy. */
-      ip6_addr_set(ip6_current_dest_addr(), &(ns_hdr->target_address));
+      /* Create an aligned copy. */
+      ip6_addr_set(&target_address, &(ns_hdr->target_address));
 
       /* Send back a NA for us. Allocate the reply pbuf. */
-      nd6_send_na(inp, ip6_current_dest_addr(), ND6_FLAG_SOLICITED | ND6_FLAG_OVERRIDE);
+      nd6_send_na(inp, &target_address, ND6_FLAG_SOLICITED | ND6_FLAG_OVERRIDE);
     }
 
     break; /* ICMP6_TYPE_NS */
@@ -420,15 +426,15 @@ nd6_input(struct pbuf *p, struct netif *inp)
     }
 
     /* Re-set invalidation timer. */
-    default_router_list[i].invalidation_timer = htons(ra_hdr->router_lifetime);
+    default_router_list[i].invalidation_timer = lwip_htons(ra_hdr->router_lifetime);
 
     /* Re-set default timer values. */
 #if LWIP_ND6_ALLOW_RA_UPDATES
     if (ra_hdr->retrans_timer > 0) {
-      retrans_timer = htonl(ra_hdr->retrans_timer);
+      retrans_timer = lwip_htonl(ra_hdr->retrans_timer);
     }
     if (ra_hdr->reachable_time > 0) {
-      reachable_time = htonl(ra_hdr->reachable_time);
+      reachable_time = lwip_htonl(ra_hdr->reachable_time);
     }
 #endif /* LWIP_ND6_ALLOW_RA_UPDATES */
 
@@ -479,9 +485,9 @@ nd6_input(struct pbuf *p, struct netif *inp)
       {
         struct mtu_option *mtu_opt;
         mtu_opt = (struct mtu_option *)buffer;
-        if (htonl(mtu_opt->mtu) >= 1280) {
+        if (lwip_htonl(mtu_opt->mtu) >= 1280) {
 #if LWIP_ND6_ALLOW_RA_UPDATES
-          inp->mtu = (u16_t)htonl(mtu_opt->mtu);
+          inp->mtu = (u16_t)lwip_htonl(mtu_opt->mtu);
 #endif /* LWIP_ND6_ALLOW_RA_UPDATES */
         }
         break;
@@ -496,18 +502,19 @@ nd6_input(struct pbuf *p, struct netif *inp)
             !ip6_addr_islinklocal(&(prefix_opt->prefix))) {
           /* Add to on-link prefix list. */
           s8_t prefix;
+          ip6_addr_t prefix_addr;
 
           /* Get a memory-aligned copy of the prefix. */
-          ip6_addr_set(ip6_current_dest_addr(), &(prefix_opt->prefix));
+          ip6_addr_set(&prefix_addr, &(prefix_opt->prefix));
 
           /* find cache entry for this prefix. */
-          prefix = nd6_get_onlink_prefix(ip6_current_dest_addr(), inp);
+          prefix = nd6_get_onlink_prefix(&prefix_addr, inp);
           if (prefix < 0) {
             /* Create a new cache entry. */
-            prefix = nd6_new_onlink_prefix(ip6_current_dest_addr(), inp);
+            prefix = nd6_new_onlink_prefix(&prefix_addr, inp);
           }
           if (prefix >= 0) {
-            prefix_list[prefix].invalidation_timer = htonl(prefix_opt->valid_lifetime);
+            prefix_list[prefix].invalidation_timer = lwip_htonl(prefix_opt->valid_lifetime);
 
 #if LWIP_IPV6_AUTOCONFIG
             if (prefix_opt->flags & ND6_PREFIX_FLAG_AUTONOMOUS) {
@@ -640,7 +647,7 @@ nd6_input(struct pbuf *p, struct netif *inp)
     }
 
     /* Change the Path MTU. */
-    pmtu = htonl(icmp6hdr->data);
+    pmtu = lwip_htonl(icmp6hdr->data);
     destination_cache[i].pmtu = (u16_t)LWIP_MIN(pmtu, 0xFFFF);
 
     break; /* ICMP6_TYPE_PTB */
@@ -1763,6 +1770,7 @@ static void
 nd6_send_q(s8_t i)
 {
   struct ip6_hdr *ip6hdr;
+  ip6_addr_t dest;
 #if LWIP_ND6_QUEUEING
   struct nd6_q_entry *q;
 #endif /* LWIP_ND6_QUEUEING */
@@ -1779,10 +1787,10 @@ nd6_send_q(s8_t i)
     neighbor_cache[i].q = q->next;
     /* Get ipv6 header. */
     ip6hdr = (struct ip6_hdr *)(q->p->payload);
-    /* Override ip6_current_dest_addr() so that we have an aligned copy. */
-    ip6_addr_set(ip6_current_dest_addr(), &(ip6hdr->dest));
+    /* Create an aligned copy. */
+    ip6_addr_set(&dest, &(ip6hdr->dest));
     /* send the queued IPv6 packet */
-    (neighbor_cache[i].netif)->output_ip6(neighbor_cache[i].netif, q->p, ip6_current_dest_addr());
+    (neighbor_cache[i].netif)->output_ip6(neighbor_cache[i].netif, q->p, &dest);
     /* free the queued IP packet */
     pbuf_free(q->p);
     /* now queue entry can be freed */
@@ -1792,10 +1800,10 @@ nd6_send_q(s8_t i)
   if (neighbor_cache[i].q != NULL) {
     /* Get ipv6 header. */
     ip6hdr = (struct ip6_hdr *)(neighbor_cache[i].q->payload);
-    /* Override ip6_current_dest_addr() so that we have an aligned copy. */
-    ip6_addr_set(ip6_current_dest_addr(), &(ip6hdr->dest));
+    /* Create an aligned copy. */
+    ip6_addr_set(&dest, &(ip6hdr->dest));
     /* send the queued IPv6 packet */
-    (neighbor_cache[i].netif)->output_ip6(neighbor_cache[i].netif, neighbor_cache[i].q, ip6_current_dest_addr());
+    (neighbor_cache[i].netif)->output_ip6(neighbor_cache[i].netif, neighbor_cache[i].q, &dest);
     /* free the queued IP packet */
     pbuf_free(neighbor_cache[i].q);
     neighbor_cache[i].q = NULL;

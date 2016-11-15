@@ -306,7 +306,7 @@ netconn_connect(struct netconn *conn, const ip_addr_t *addr, u16_t port)
  * Disconnect a netconn from its current peer (only valid for UDP netconns).
  *
  * @param conn the netconn to disconnect
- * @return @todo: return value is not set here...
+ * @return See @ref err_t
  */
 err_t
 netconn_disconnect(struct netconn *conn)
@@ -544,6 +544,10 @@ netconn_recv_data(struct netconn *conn, void **new_buf)
     /* If we are closed, we indicate that we no longer wish to use the socket */
     if (buf == NULL) {
       API_EVENT(conn, NETCONN_EVT_RCVMINUS, 0);
+      if (conn->pcb.ip == NULL) {
+        /* race condition: RST during recv */
+        return conn->last_err == ERR_OK ? ERR_RST : conn->last_err;
+      }
       /* RX side is closed, so deallocate the recvmbox */
       netconn_close_shutdown(conn, NETCONN_SHUT_RD);
       /* Don' store ERR_CLSD as conn->err since we are only half-closed */

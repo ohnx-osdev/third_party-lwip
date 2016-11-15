@@ -680,7 +680,7 @@ dns_send(u8_t idx)
   if (p != NULL) {
     /* fill dns header */
     memset(&hdr, 0, SIZEOF_DNS_HDR);
-    hdr.id = htons(entry->txid);
+    hdr.id = lwip_htons(entry->txid);
     hdr.flags1 = DNS_FLAG1_RD;
     hdr.numquestions = PP_HTONS(1);
     pbuf_take(p, &hdr, SIZEOF_DNS_HDR);
@@ -1013,8 +1013,6 @@ dns_correct_response(u8_t idx, u32_t ttl)
 }
 /**
  * Receive input function for DNS response packets arriving for the dns UDP pcb.
- *
- * @params see udp.h
  */
 static void
 dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
@@ -1041,7 +1039,7 @@ dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, 
   /* copy dns payload inside static buffer for processing */
   if (pbuf_copy_partial(p, &hdr, SIZEOF_DNS_HDR, 0) == SIZEOF_DNS_HDR) {
     /* Match the ID in the DNS header with the name table. */
-    txid = htons(hdr.id);
+    txid = lwip_htons(hdr.id);
     for (i = 0; i < DNS_TABLE_SIZE; i++) {
       const struct dns_table_entry *entry = &dns_table[i];
       if ((entry->state == DNS_STATE_ASKING) &&
@@ -1049,8 +1047,8 @@ dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, 
 
         /* We only care about the question(s) and the answers. The authrr
            and the extrarr are simply discarded. */
-        nquestions = htons(hdr.numquestions);
-        nanswers   = htons(hdr.numanswers);
+        nquestions = lwip_htons(hdr.numquestions);
+        nanswers   = lwip_htons(hdr.numanswers);
 
         /* Check for correct response. */
         if ((hdr.flags1 & DNS_FLAG1_RESPONSE) == 0) {
@@ -1121,7 +1119,7 @@ dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, 
                   ip_addr_copy_from_ip4(dns_table[i].ipaddr, ip4addr);
                   pbuf_free(p);
                   /* handle correct response */
-                  dns_correct_response(i, ntohl(ans.ttl));
+                  dns_correct_response(i, lwip_ntohl(ans.ttl));
                   return;
                 }
               }
@@ -1140,17 +1138,17 @@ dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, 
                   ip_addr_copy_from_ip6(dns_table[i].ipaddr, ip6addr);
                   pbuf_free(p);
                   /* handle correct response */
-                  dns_correct_response(i, ntohl(ans.ttl));
+                  dns_correct_response(i, lwip_ntohl(ans.ttl));
                   return;
                 }
               }
 #endif /* LWIP_IPV6 */
             }
             /* skip this answer */
-            if ((int)(res_idx + htons(ans.len)) > 0xFFFF) {
+            if ((int)(res_idx + lwip_htons(ans.len)) > 0xFFFF) {
               goto memerr; /* ignore this packet */
             }
-            res_idx += htons(ans.len);
+            res_idx += lwip_htons(ans.len);
             --nanswers;
           }
 #if LWIP_IPV4 && LWIP_IPV6
@@ -1193,7 +1191,7 @@ memerr:
  * @param hostnamelen length of the hostname
  * @param found a callback function to be called on success, failure or timeout
  * @param callback_arg argument to pass to the callback function
- * @return @return a err_t return code.
+ * @return err_t return code.
  */
 static err_t
 dns_enqueue(const char *name, size_t hostnamelen, dns_found_callback found,
@@ -1357,7 +1355,7 @@ dns_gethostbyname(const char *hostname, ip_addr_t *addr, dns_found_callback foun
  * @param found a callback function to be called on success, failure or timeout (only if
  *              ERR_INPROGRESS is returned!)
  * @param callback_arg argument to pass to the callback function
- * @param dns_addrtype: - LWIP_DNS_ADDRTYPE_IPV4_IPV6: try to resolve IPv4 first, try IPv6 if IPv4 fails only
+ * @param dns_addrtype - LWIP_DNS_ADDRTYPE_IPV4_IPV6: try to resolve IPv4 first, try IPv6 if IPv4 fails only
  *                      - LWIP_DNS_ADDRTYPE_IPV6_IPV4: try to resolve IPv6 first, try IPv4 if IPv6 fails only
  *                      - LWIP_DNS_ADDRTYPE_IPV4: try to resolve IPv4 only
  *                      - LWIP_DNS_ADDRTYPE_IPV6: try to resolve IPv6 only

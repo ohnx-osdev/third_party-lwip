@@ -7,11 +7,19 @@
  * Byte swapping is the second thing you would want to optimize. You will
  * need to port it to your architecture and in your cc.h:
  *
- * \#define LWIP_PLATFORM_BYTESWAP 1
- * \#define LWIP_PLATFORM_HTONS(x) your_htons
- * \#define LWIP_PLATFORM_HTONL(x) your_htonl
+ * \#define lwip_htons(x) your_htons
+ * \#define lwip_htonl(x) your_htonl
  *
- * Note ntohs() and ntohl() are merely references to the htonx counterparts.
+ * Note lwip_ntohs() and lwip_ntohl() are merely references to the htonx counterparts.
+ * 
+ * If you \#define them to htons() and htonl(), you should
+ * \#define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS to prevent lwIP from
+ * defining htonx/ntohx compatibility macros.
+
+ * @defgroup sys_nonstandard Non-standard functions
+ * @ingroup sys_layer
+ * lwIP provides default implementations for non-standard functions.
+ * These can be mapped to OS functions to reduce code footprint if desired.
  */
 
 /*
@@ -51,8 +59,9 @@
 
 #include <string.h>
 
-#if (LWIP_PLATFORM_BYTESWAP == 0) && (BYTE_ORDER == LITTLE_ENDIAN)
+#if BYTE_ORDER == LITTLE_ENDIAN
 
+#if !defined(lwip_htons)
 /**
  * Convert an u16_t from host- to network byte order.
  *
@@ -62,21 +71,11 @@
 u16_t
 lwip_htons(u16_t n)
 {
-  return ((n & 0xff) << 8) | ((n & 0xff00) >> 8);
+  return (u16_t)PP_HTONS(n);
 }
+#endif /* lwip_htons */
 
-/**
- * Convert an u16_t from network- to host byte order.
- *
- * @param n u16_t in network byte order
- * @return n in host byte order
- */
-u16_t
-lwip_ntohs(u16_t n)
-{
-  return lwip_htons(n);
-}
-
+#if !defined(lwip_htonl)
 /**
  * Convert an u32_t from host- to network byte order.
  *
@@ -86,28 +85,18 @@ lwip_ntohs(u16_t n)
 u32_t
 lwip_htonl(u32_t n)
 {
-  return ((n & 0xff) << 24) |
-    ((n & 0xff00) << 8) |
-    ((n & 0xff0000UL) >> 8) |
-    ((n & 0xff000000UL) >> 24);
+  return (u32_t)PP_HTONL(n);
 }
+#endif /* lwip_htonl */
 
-/**
- * Convert an u32_t from network- to host byte order.
- *
- * @param n u32_t in network byte order
- * @return n in host byte order
- */
-u32_t
-lwip_ntohl(u32_t n)
-{
-  return lwip_htonl(n);
-}
-
-#endif /* (LWIP_PLATFORM_BYTESWAP == 0) && (BYTE_ORDER == LITTLE_ENDIAN) */
+#endif /* BYTE_ORDER == LITTLE_ENDIAN */
 
 #ifndef lwip_strnstr
-/** Like strstr but does not need 'buffer' to be NULL-terminated */
+/**
+ * @ingroup sys_nonstandard
+ * lwIP default implementation for strnstr() non-standard function.
+ * This can be \#defined to strnstr() depending on your platform port.
+ */
 char*
 lwip_strnstr(const char* buffer, const char* token, size_t n)
 {
@@ -126,6 +115,11 @@ lwip_strnstr(const char* buffer, const char* token, size_t n)
 #endif
 
 #ifndef lwip_stricmp
+/**
+ * @ingroup sys_nonstandard
+ * lwIP default implementation for stricmp() non-standard function.
+ * This can be \#defined to stricmp() depending on your platform port.
+ */
 int
 lwip_stricmp(const char* str1, const char* str2)
 {
@@ -156,6 +150,11 @@ lwip_stricmp(const char* str1, const char* str2)
 #endif
 
 #ifndef lwip_strnicmp
+/**
+ * @ingroup sys_nonstandard
+ * lwIP default implementation for strnicmp() non-standard function.
+ * This can be \#defined to strnicmp() depending on your platform port.
+ */
 int
 lwip_strnicmp(const char* str1, const char* str2, size_t len)
 {
@@ -186,6 +185,11 @@ lwip_strnicmp(const char* str1, const char* str2, size_t len)
 #endif
 
 #ifndef lwip_itoa
+/**
+ * @ingroup sys_nonstandard
+ * lwIP default implementation for itoa() non-standard function.
+ * This can be \#defined to itoa() or snprintf(result, bufsize, "%d", number) depending on your platform port.
+ */
 void
 lwip_itoa(char* result, size_t bufsize, int number)
 {
