@@ -100,7 +100,7 @@ extern unsigned char lwip_debug_flags;
 
 /* MEM_SIZE: the size of the heap memory. If the application will send
 a lot of data that needs to be copied, this should be set high. */
-#define MEM_SIZE               10240
+#define MEM_SIZE                24000
 
 /* MEMP_NUM_PBUF: the number of memp struct pbufs. If the application
    sends a lot of data out of ROM (or other static memory), this
@@ -111,35 +111,35 @@ a lot of data that needs to be copied, this should be set high. */
 #define MEMP_NUM_RAW_PCB        3
 /* MEMP_NUM_UDP_PCB: the number of UDP protocol control blocks. One
    per active UDP "connection". */
-#define MEMP_NUM_UDP_PCB        6
+#define MEMP_NUM_UDP_PCB        64
 /* MEMP_NUM_TCP_PCB: the number of simulatenously active TCP
    connections. */
 #define MEMP_NUM_TCP_PCB        64
 /* MEMP_NUM_TCP_PCB_LISTEN: the number of listening TCP
    connections. */
-#define MEMP_NUM_TCP_PCB_LISTEN 8
+#define MEMP_NUM_TCP_PCB_LISTEN 64
 /* MEMP_NUM_TCP_SEG: the number of simultaneously queued TCP
    segments. */
-#define MEMP_NUM_TCP_SEG        16
+#define MEMP_NUM_TCP_SEG        360
 /* MEMP_NUM_SYS_TIMEOUT: the number of simulateously active
    timeouts. */
-#define MEMP_NUM_SYS_TIMEOUT    12
+#define MEMP_NUM_SYS_TIMEOUT    120
 
 /* The following four are used only with the sequential API and can be
    set to 0 if the application only will use the raw API. */
 /* MEMP_NUM_NETBUF: the number of struct netbufs. */
 #define MEMP_NUM_NETBUF         2
 /* MEMP_NUM_NETCONN: the number of struct netconns. */
-#define MEMP_NUM_NETCONN        10
+#define MEMP_NUM_NETCONN        100
 /* MEMP_NUM_TCPIP_MSG_*: the number of struct tcpip_msg, which is used
    for sequential API communication and incoming packets. Used in
    src/api/tcpip.c. */
-#define MEMP_NUM_TCPIP_MSG_API   16
-#define MEMP_NUM_TCPIP_MSG_INPKT 16
+#define MEMP_NUM_TCPIP_MSG_API   120
+#define MEMP_NUM_TCPIP_MSG_INPKT 120
 
 /* ---------- Pbuf options ---------- */
 /* PBUF_POOL_SIZE: the number of buffers in the pbuf pool. */
-#define PBUF_POOL_SIZE          200
+#define PBUF_POOL_SIZE          3600
 
 /* PBUF_POOL_BUFSIZE: the size of each pbuf in the pbuf pool. */
 #define PBUF_POOL_BUFSIZE       128
@@ -248,7 +248,7 @@ extern void sntp_set_system_time(u32_t sec);
 #define UDP_TTL                 255
 
 /* ---------- RAW options ---------- */
-#define LWIP_RAW                1
+#define LWIP_RAW                0
 #define RAW_TTL                 255
 
 /* ---------- Statistics options ---------- */
@@ -258,6 +258,7 @@ extern void sntp_set_system_time(u32_t sec);
  * */
 
 #define LWIP_STATS        1
+#define LWIP_STATS_DISPLAY  1
 
 #define LWIP_NETIF_API    1
 #define LWIP_NETIF_STATUS_CALLBACK 1
