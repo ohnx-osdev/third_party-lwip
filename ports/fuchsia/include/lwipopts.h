@@ -100,7 +100,7 @@ extern unsigned char lwip_debug_flags;
 
 /* MEM_SIZE: the size of the heap memory. If the application will send
 a lot of data that needs to be copied, this should be set high. */
-#define MEM_SIZE                24000
+#define MEM_SIZE                1000000
 
 /* MEMP_NUM_PBUF: the number of memp struct pbufs. If the application
    sends a lot of data out of ROM (or other static memory), this
@@ -120,7 +120,7 @@ a lot of data that needs to be copied, this should be set high. */
 #define MEMP_NUM_TCP_PCB_LISTEN 64
 /* MEMP_NUM_TCP_SEG: the number of simultaneously queued TCP
    segments. */
-#define MEMP_NUM_TCP_SEG        360
+#define MEMP_NUM_TCP_SEG        720
 /* MEMP_NUM_SYS_TIMEOUT: the number of simulateously active
    timeouts. */
 #define MEMP_NUM_SYS_TIMEOUT    120
@@ -168,14 +168,14 @@ a lot of data that needs to be copied, this should be set high. */
 #define TCP_QUEUE_OOSEQ         1
 
 /* TCP Maximum segment size. */
-#define TCP_MSS                 1024
+#define TCP_MSS                 1460
 
 /* TCP sender buffer space (bytes). */
-#define TCP_SND_BUF             2048
+#define TCP_SND_BUF             (TCP_MSS * 42)
 
 /* TCP sender buffer space (pbufs). This must be at least = 2 *
    TCP_SND_BUF/TCP_MSS for things to work. */
-#define TCP_SND_QUEUELEN        (4 * TCP_SND_BUF/TCP_MSS)
+#define TCP_SND_QUEUELEN        (16 * TCP_SND_BUF/TCP_MSS)
 
 /* TCP writable space (bytes). This must be less than or equal
    to TCP_SND_BUF. It is the amount of space which must be
@@ -183,7 +183,7 @@ a lot of data that needs to be copied, this should be set high. */
 #define TCP_SNDLOWAT            (TCP_SND_BUF/2)
 
 /* TCP receive window. */
-#define TCP_WND                 8096
+#define TCP_WND                 TCP_SND_BUF
 
 /* Maximum number of retransmissions of data segments. */
 #define TCP_MAXRTX              12
