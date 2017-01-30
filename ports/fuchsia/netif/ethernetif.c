@@ -143,6 +143,12 @@ low_level_init(struct netif *netif)
       MX_HANDLE_INVALID) {
     ethernetif->io_type = IO_TYPE_CHANNEL;
     ethernetif->io.h = h;
+    printf("ethernetif_init: sending ipc signal\n");
+    mx_status_t status = mx_object_signal_peer(h, 0, MX_USER_SIGNAL_0);
+    if (status != NO_ERROR) {
+        printf("ethernetif_init: could not signal handle peer! %d\n", status);
+        return;
+    }
     printf("ethernetif_init: using a startup handle\n");
   } else if ((fd = open_ethernet_device(netif->hwaddr,
                                         &netif->hwaddr_len)) >= 0) {
